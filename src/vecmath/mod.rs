@@ -28,6 +28,44 @@ impl Vec2d
     }
 }
 
+impl std::ops::Add<Vec2d> for Vec2d
+{
+    type Output = Vec2d;
+
+    fn add(self, rhs: Vec2d) -> Self::Output {
+        Vec2d
+        {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
+        }
+    }
+}
+
+impl std::ops::Mul<f32> for Vec2d
+{
+    type Output = Vec2d;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Vec2d
+        {
+            x: self.x * rhs,
+            y: self.y * rhs
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Vec2d
+{
+    type Output = Vec2d;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Vec2d
+        {
+            x: self.x / rhs,
+            y: self.y / rhs
+        }
+    }
+}
 
 
 impl TransformationMatrix
@@ -119,6 +157,42 @@ mod tests {
     {
         let x = Vec2d::new(1.0, 1.0);
         assert_eq!(2.0_f32.sqrt(), x.len());
+    }
+
+    #[test]
+    pub fn vec_add_works()
+    {
+        let v = Vec2d::new(2.0, 3.0);
+        let v2 = v + Vec2d::new(2.0, 3.0);
+        assert_eq!(v2.x, 4.0);
+        assert_eq!(v2.y, 6.0);
+    }
+
+    #[test]
+    pub fn vec_mul_works()
+    {
+        let v = Vec2d::new(2.0, 3.0);
+        let v2 = v * 2.0;
+        assert_eq!(v2.x, 4.0);
+        assert_eq!(v2.y, 6.0);
+    }
+
+    #[test]
+    pub fn vec_div_works()
+    {
+        let v = Vec2d::new(4.0,6.0);
+        let v2 = v / 2.0;
+        assert_eq!(v2.x, 2.0);
+        assert_eq!(v2.y, 3.0);
+    }
+
+    
+    #[test]
+    pub fn vec_div_works_scale()
+    {
+        let v = Vec2d::new(4.0,6.0);
+        let v2 = v / v.len();
+        assert_eq!(1.0, v2.len())
     }
 
     #[test]
