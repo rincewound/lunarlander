@@ -2,7 +2,7 @@ use std::num;
 
 use sdl2::pixels::Color;
 
-use crate::{draw, map::PointList, vecmath::{Vec2d, self}};
+use crate::{draw, map::PointList, vecmath::{Vec2d, self}, hud};
 use crate::graphics;
 
 struct Physics {
@@ -27,6 +27,7 @@ pub struct World {
     entities: Vec<Entity>,
     lander: Option<Lander>,
     map: PointList,
+    hud: hud::Hud,
 }
 
 impl Entity {
@@ -91,6 +92,7 @@ impl World {
             entities: Vec::new(),
             lander: None,
             map: PointList::new(800.0, 500.0),
+            hud: hud::Hud::new(),
         };
         let landerId = w.create_entity();
         w.lander = Some(Lander {
@@ -127,6 +129,7 @@ impl World {
 
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255), false).unwrap();
+        self.renderHud(canvas);
 
         //draw the lander:
         let id;
@@ -175,6 +178,19 @@ impl World {
     pub(crate) fn rotation_right_toggle(&self, enable: bool) {}
 
     fn do_collision_detection(&self) {}
+
+    fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>)
+    {
+        if let Some(lander) = self.lander.as_ref() {
+            let fuel  = lander.fuel;
+            let id = lander.entity_id;
+            let entity = self.get_entity(id);
+            let position = entity.position;
+            let direction = entity.direction;
+            self.hud.update(position, direction, fuel, 0);
+        }
+        self.hud.render(canvas);
+    }
 }
 
 mod tests {

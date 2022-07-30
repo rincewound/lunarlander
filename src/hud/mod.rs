@@ -13,7 +13,16 @@ pub struct Hud {
 }
 
 impl Hud {
-    pub fn new(position: Vec2d, direction: Vec2d, fuel: f32, deaths: u32) -> Self {
+    pub fn new() -> Self {
+        Self {
+            position: Vec2d::new(0.0, 0.0),
+            direction: Vec2d::new(0.0, 0.0),
+            fuel: 0.0,
+            deaths: 0,
+        }
+    }
+
+    pub fn from(position: Vec2d, direction: Vec2d, fuel: f32, deaths: u32) -> Self {
         Self {
             position,
             direction,
@@ -45,7 +54,7 @@ impl Hud {
         self.deaths = deaths;
     }
 
-    pub fn render(self, canvas: &mut Canvas<Window>) {
+    pub fn render(&self, canvas: &mut Canvas<Window>) {
         let hud_position = format!("Position: x = {}, y = {}", self.position.x, self.position.y);
         let hud_direction = format!(
             "Direction: x = {}, y = {}",
