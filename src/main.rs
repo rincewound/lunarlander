@@ -1,8 +1,9 @@
-use sdl2::render::Canvas;
-use sdl2::video::Window;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
+use sdl2::render::Canvas;
+use sdl2::sys::KeyCode;
+use sdl2::video::Window;
 use std::time::Duration;
 
 mod draw;
@@ -28,6 +29,8 @@ pub fn main() -> Result<(), String> {
     canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
 
+    let mut sim = simulation::World::new();
+
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -36,6 +39,46 @@ pub fn main() -> Result<(), String> {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(Keycode::Space),
+                    ..
+                } => {
+                    sim.thrust_toggle(true);
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Space),
+                    ..
+                } => {
+                    sim.thrust_toggle(false);
+                }
+
+                Event::KeyDown {
+                    keycode: Some(Keycode::Left),
+                    ..
+                } => {
+                    sim.rotation_left_toggle(true);
+                }
+
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => {
+                    sim.rotation_left_toggle(false);
+                }
+
+                Event::KeyUp {
+                    keycode: Some(Keycode::Left),
+                    ..
+                } => {
+                    sim.rotation_right_toggle(true);
+                }
+
+                Event::KeyUp {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => {
+                    sim.rotation_right_toggle(false);
+                }
                 _ => {}
             }
         }
@@ -44,19 +87,20 @@ pub fn main() -> Result<(), String> {
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
+        sim.render(&mut canvas);
 
         draw_example(&mut canvas);
 
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
         // The rest of the game loop goes here...
+        sim.tick(50.0, 10.0);
     }
 
     Ok(())
 }
 
-fn draw_example(canvas: &mut Canvas<Window>) 
-{
+fn draw_example(canvas: &mut Canvas<Window>) {
     let p1 = Box::new(vecmath::Vec2d::new(0.0, 0.0));
     let p2 = Box::new(vecmath::Vec2d::new(100.0, 100.0));
     let p3 = Box::new(vecmath::Vec2d::new(200.0, 500.0));
