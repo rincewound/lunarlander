@@ -98,13 +98,9 @@ impl TransformationMatrix {
         }
     }
 
-    pub fn scale(sx: f32, sy: f32) -> Self
-    {
+    pub fn scale(sx: f32, sy: f32) -> Self {
         TransformationMatrix {
-            m: [
-            [sx, 0.0, 0.0], 
-            [0.0, sy, 0.0], 
-            [0.0, 0.0, 1.0]],
+            m: [[sx, 0.0, 0.0], [0.0, sy, 0.0], [0.0, 0.0, 1.0]],
         }
     }
 
@@ -114,11 +110,9 @@ impl TransformationMatrix {
         Vec2d { x, y }
     }
 
-    pub fn transform_many(&self, v: &Vec<Vec2d>) -> Vec<Vec2d>
-    {
-        let mut result:Vec<Vec2d> = Vec::new();
-        for vector in v.iter()
-        {
+    pub fn transform_many(&self, v: &Vec<Vec2d>) -> Vec<Vec2d> {
+        let mut result: Vec<Vec2d> = Vec::new();
+        for vector in v.iter() {
             result.push(self.transform(vector));
         }
         result
@@ -137,18 +131,18 @@ impl std::ops::Mul<TransformationMatrix> for TransformationMatrix {
             self.m[0][0] * rhs.m[0][2] + self.m[0][1] * rhs.m[1][2] + self.m[0][2] * rhs.m[2][2];
 
         let v10 =
-            self.m[1][0] * rhs.m[1][0] + self.m[1][1] * rhs.m[1][0] + self.m[1][2] * rhs.m[1][0];
+            self.m[1][0] * rhs.m[0][0] + self.m[1][1] * rhs.m[1][0] + self.m[1][2] * rhs.m[2][0];
         let v11 =
-            self.m[1][0] * rhs.m[1][1] + self.m[1][1] * rhs.m[1][1] + self.m[1][2] * rhs.m[1][1];
+            self.m[1][0] * rhs.m[0][1] + self.m[1][1] * rhs.m[1][1] + self.m[1][2] * rhs.m[2][1];
         let v12 =
-            self.m[1][0] * rhs.m[1][2] + self.m[1][1] * rhs.m[1][2] + self.m[1][2] * rhs.m[1][2];
+            self.m[1][0] * rhs.m[0][2] + self.m[1][1] * rhs.m[1][2] + self.m[1][2] * rhs.m[2][2];
 
         let v20 =
-            self.m[2][0] * rhs.m[2][0] + self.m[2][1] * rhs.m[2][0] + self.m[2][2] * rhs.m[2][0];
+            self.m[2][0] * rhs.m[0][0] + self.m[2][1] * rhs.m[1][0] + self.m[2][2] * rhs.m[2][0];
         let v21 =
-            self.m[2][0] * rhs.m[2][1] + self.m[2][1] * rhs.m[2][1] + self.m[2][2] * rhs.m[2][1];
+            self.m[2][0] * rhs.m[0][1] + self.m[2][1] * rhs.m[1][1] + self.m[2][2] * rhs.m[2][1];
         let v22 =
-            self.m[2][0] * rhs.m[2][2] + self.m[2][1] * rhs.m[2][2] + self.m[2][2] * rhs.m[2][2];
+            self.m[2][0] * rhs.m[0][2] + self.m[2][1] * rhs.m[1][2] + self.m[2][2] * rhs.m[2][2];
 
         TransformationMatrix {
             m: [[v00, v01, v02], [v10, v11, v12], [v20, v21, v22]],
