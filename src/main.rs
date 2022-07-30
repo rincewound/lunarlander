@@ -90,8 +90,6 @@ pub fn main() -> Result<(), String> {
         canvas.clear();
         sim.render(&mut canvas);
 
-        draw_example(&mut canvas);
-
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
         // The rest of the game loop goes here...
@@ -99,27 +97,4 @@ pub fn main() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn draw_example(canvas: &mut Canvas<Window>) {
-    let p1 = Box::new(vecmath::Vec2d::new(0.0, 0.0));
-    let p2 = Box::new(vecmath::Vec2d::new(100.0, 100.0));
-    let p3 = Box::new(vecmath::Vec2d::new(200.0, 500.0));
-
-    let mut points = Vec::new();
-    points.push(p1);
-    points.push(p2);
-    points.push(p3);
-    draw::draw_lines(canvas, &points, Color::RGB(255, 255, 255), true).unwrap();
-
-    let origin = vecmath::Vec2d::new(300.0, 300.0);
-    draw::draw_rect(canvas, &origin, 50, 100, Color::RGB(0, 0, 255), true).unwrap();
-
-    let hud = hud::Hud::new(
-        vecmath::Vec2d::new(0.0, 0.0),
-        vecmath::Vec2d::new(0.0, 0.0),
-        0.0,
-        0,
-    );
-    hud.render(canvas);
 }
