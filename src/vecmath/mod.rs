@@ -1,12 +1,12 @@
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vec2d
 {
     pub x: f32,
     pub y: f32
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct TransformationMatrix
 {
     m: [[f32;3];3]
@@ -37,6 +37,19 @@ impl std::ops::Add<Vec2d> for Vec2d
         {
             x: self.x + rhs.x,
             y: self.y + rhs.y
+        }
+    }
+}
+
+impl std::ops::Sub<Vec2d> for Vec2d
+{
+    type Output = Vec2d;
+
+    fn sub(self, rhs: Vec2d) -> Self::Output {
+        Vec2d
+        {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y
         }
     }
 }
@@ -166,6 +179,15 @@ mod tests {
         let v2 = v + Vec2d::new(2.0, 3.0);
         assert_eq!(v2.x, 4.0);
         assert_eq!(v2.y, 6.0);
+    }
+
+    #[test]
+    pub fn vec_sub_works()
+    {
+        let v = Vec2d::new(2.0, 3.0);
+        let v2 = v - Vec2d::new(1.0, 1.0);
+        assert_eq!(v2.x, 1.0);
+        assert_eq!(v2.y, 2.0);
     }
 
     #[test]
