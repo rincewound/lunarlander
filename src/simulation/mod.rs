@@ -125,7 +125,7 @@ impl World {
     }
 
     pub(crate) fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
-        draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255)).unwrap();
+        draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255), false).unwrap();
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
