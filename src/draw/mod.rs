@@ -83,16 +83,18 @@ pub fn draw_text(
     let font_path = Path::new("assets/DejaVuSansMono.ttf");
     let font = ttf_context.load_font(font_path, font_size)?;
 
-    let surface = font
-        .render(text)
-        .solid(color)
-        .map_err(|e| e.to_string())?;
+    let surface = font.render(text).solid(color).map_err(|e| e.to_string())?;
 
     let creator = canvas.texture_creator();
     let texture = creator
         .create_texture_from_surface(&surface)
         .map_err(|e| e.to_string())?;
-    let rect = Rect::new(origin.x, origin.y, texture.query().width, texture.query().height);
+    let rect = Rect::new(
+        origin.x,
+        origin.y,
+        texture.query().width,
+        texture.query().height,
+    );
 
     canvas.set_draw_color(color);
     canvas.copy(&texture, None, rect)?;

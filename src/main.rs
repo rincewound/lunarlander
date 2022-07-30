@@ -6,10 +6,10 @@ use sdl2::video::Window;
 use std::time::Duration;
 
 mod draw;
+mod hud;
 mod map;
 mod simulation;
 mod vecmath;
-mod hud;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
@@ -114,6 +114,11 @@ fn draw_example(canvas: &mut Canvas<Window>) {
     let origin = vecmath::Vec2d::new(300.0, 300.0);
     draw::draw_rect(canvas, &origin, 50, 100, Color::RGB(0, 0, 255), true).unwrap();
 
-    let hud = hud::Hud::new(vecmath::Vec2d::new(0.0, 0.0), vecmath::Vec2d::new(0.0, 0.0), 0.0, 0);
+    let hud = hud::Hud::new(
+        vecmath::Vec2d::new(0.0, 0.0),
+        vecmath::Vec2d::new(0.0, 0.0),
+        0.0,
+        0,
+    );
     hud.render(canvas);
 }
