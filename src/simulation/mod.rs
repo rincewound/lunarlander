@@ -1,6 +1,8 @@
 use std::num;
 
-use crate::vecmath::Vec2d;
+use sdl2::pixels::Color;
+
+use crate::{draw, map::PointList, vecmath::Vec2d};
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -23,6 +25,7 @@ pub struct World {
     p: Physics,
     entities: Vec<Entity>,
     lander: Option<Lander>,
+    map: PointList,
 }
 
 impl Entity {
@@ -86,6 +89,7 @@ impl World {
             p: Physics::default(),
             entities: Vec::new(),
             lander: None,
+            map: PointList::new(800.0, 500.0),
         };
         let landerId = w.create_entity();
         w.lander = Some(Lander {
@@ -120,7 +124,9 @@ impl World {
         self.do_collision_detection();
     }
 
-    pub(crate) fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {}
+    pub(crate) fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+        draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255)).unwrap();
+    }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
         let id;
