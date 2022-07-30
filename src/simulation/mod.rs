@@ -7,7 +7,7 @@ struct Physics {
     gravity_direction: Vec2d,
 }
 
-struct Entity {
+pub struct Entity {
     position: Vec2d,
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
