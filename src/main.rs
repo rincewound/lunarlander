@@ -4,6 +4,7 @@ use sdl2::pixels::Color;
 use std::time::Duration;
 
 mod vecmath;
+mod map;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
