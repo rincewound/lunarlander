@@ -3,8 +3,10 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use std::time::Duration;
 
-mod vecmath;
+mod draw;
 mod map;
+mod simulation;
+mod vecmath;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
