@@ -110,8 +110,10 @@ fn draw_example(canvas: &mut Canvas<Window>) {
     points.push(p1);
     points.push(p2);
     points.push(p3);
-    draw::draw_lines(canvas, &points, Color::RGB(255, 255, 255)).unwrap();
+    draw::draw_lines(canvas, &points, Color::RGB(255, 255, 255), true).unwrap();
 
     let origin = vecmath::Vec2d::new(300.0, 300.0);
     draw::draw_rect(canvas, &origin, 50, 100, Color::RGB(0, 0, 255), true).unwrap();
+
+    draw::draw_text(canvas, "Hello World!", 20, Color::RGB(0, 255, 0)).unwrap();
 }
