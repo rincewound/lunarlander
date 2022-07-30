@@ -75,6 +75,7 @@ pub fn draw_text(
     canvas: &mut Canvas<Window>,
     text: &str,
     font_size: u16,
+    origin: Point,
     color: Color,
 ) -> Result<(), String> {
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
@@ -84,14 +85,14 @@ pub fn draw_text(
 
     let surface = font
         .render(text)
-        .solid(Color::RGBA(125, 0, 125, 255))
+        .solid(color)
         .map_err(|e| e.to_string())?;
 
     let creator = canvas.texture_creator();
     let texture = creator
         .create_texture_from_surface(&surface)
         .map_err(|e| e.to_string())?;
-    let rect = Rect::new(100, 100, texture.query().width, texture.query().height);
+    let rect = Rect::new(origin.x, origin.y, texture.query().width, texture.query().height);
 
     canvas.set_draw_color(color);
     canvas.copy(&texture, None, rect)?;
