@@ -16,6 +16,11 @@ impl Vec2d {
         Vec2d { x, y }
     }
 
+    pub fn default() -> Self
+    {
+        Vec2d{x:0.0,y:0.0}
+    }
+
     pub fn len(&self) -> f32 {
         return (self.x * self.x + self.y * self.y).sqrt();
     }
