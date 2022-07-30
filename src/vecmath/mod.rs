@@ -79,24 +79,24 @@ impl std::ops::Mul<TransformationMatrix> for TransformationMatrix
 
     fn mul(self, rhs: TransformationMatrix) -> Self::Output {
 
-        let v00 = self.m[0][0] * rhs.m[0][0] + self.m[1][0] * rhs.m[0][1] + self.m[2][0] * rhs.m[0][2];
-        let v01 = self.m[0][0] * rhs.m[1][0] + self.m[1][0] * rhs.m[1][1] + self.m[2][0] * rhs.m[1][2];
-        let v02 = self.m[0][0] * rhs.m[2][0] + self.m[1][0] * rhs.m[2][1] + self.m[2][0] * rhs.m[2][2];
+        let v00 = self.m[0][0] * rhs.m[0][0] + self.m[0][1] * rhs.m[1][0] + self.m[0][2] * rhs.m[2][0];
+        let v01 = self.m[0][0] * rhs.m[0][1] + self.m[0][1] * rhs.m[1][1] + self.m[0][2] * rhs.m[2][1];
+        let v02 = self.m[0][0] * rhs.m[0][2] + self.m[0][1] * rhs.m[1][2] + self.m[0][2] * rhs.m[2][2];
 
-        let v10 = self.m[0][1] * rhs.m[0][1] + self.m[1][1] * rhs.m[0][1] + self.m[2][1] * rhs.m[0][2];
-        let v11 = self.m[0][1] * rhs.m[1][1] + self.m[1][1] * rhs.m[1][1] + self.m[2][1] * rhs.m[1][2];
-        let v12 = self.m[0][1] * rhs.m[2][1] + self.m[1][1] * rhs.m[2][1] + self.m[2][1] * rhs.m[2][2];
+        let v10 = self.m[1][0] * rhs.m[1][0] + self.m[1][1] * rhs.m[1][0] + self.m[1][2] * rhs.m[1][0];
+        let v11 = self.m[1][0] * rhs.m[1][1] + self.m[1][1] * rhs.m[1][1] + self.m[1][2] * rhs.m[1][1];
+        let v12 = self.m[1][0] * rhs.m[1][2] + self.m[1][1] * rhs.m[1][2] + self.m[1][2] * rhs.m[1][2];
 
-        let v20 = self.m[0][2] * rhs.m[0][1] + self.m[1][2] * rhs.m[0][1] + self.m[2][2] * rhs.m[0][2];
-        let v21 = self.m[0][2] * rhs.m[1][1] + self.m[1][2] * rhs.m[1][1] + self.m[2][2] * rhs.m[1][2];
-        let v22 = self.m[0][2] * rhs.m[2][1] + self.m[1][2] * rhs.m[2][1] + self.m[2][2] * rhs.m[2][2];
+        let v20 = self.m[2][0] * rhs.m[2][0] + self.m[2][1] * rhs.m[2][0] + self.m[2][2] * rhs.m[2][0];
+        let v21 = self.m[2][0] * rhs.m[2][1] + self.m[2][1] * rhs.m[2][1] + self.m[2][2] * rhs.m[2][1];
+        let v22 = self.m[2][0] * rhs.m[2][2] + self.m[2][1] * rhs.m[2][2] + self.m[2][2] * rhs.m[2][2];
 
         TransformationMatrix
         {
             m: [
-                [ v00 , v01, v02],              
-                [v10, v11, v12],
-                [v20, v21, v22]
+                [ v00, v01, v02],              
+                [ v10, v11, v12],
+                [ v20, v21, v22]
               ]
         }   
     }
@@ -146,15 +146,15 @@ mod tests {
     #[test]
     pub fn can_mult_matrix()
     {
-        // let m1 = TransformationMatrix::unit();
-        // let m2 = TransformationMatrix::translation(1.0,2.0);
-        // let m3 = m1 * m2;
+        let m1 = TransformationMatrix::unit();
+        let m2 = TransformationMatrix::translation(1.0,2.0);
+        let m3 = m1 * m2;
 
-        // let v = Vec2d::new(3.0,4.0);
-        // let v2 = m3.transform(&v);
+        let v = Vec2d::new(3.0,4.0);
+        let v2 = m3.transform(&v);
 
-        // assert_eq!(v2.x, 4.0);
-        // assert_eq!(v2.y, 6.0);
+        assert_eq!(v2.x, 4.0);
+        assert_eq!(v2.y, 6.0);
 
     }
 
