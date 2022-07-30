@@ -13,6 +13,10 @@ impl PointList {
             values: Vec::from([Vec2d::new(0.0, 0.0), Vec2d::new(maxX, maxY)]),
         }
     }
+
+    fn sort(self: &mut Self) {
+        self.values.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    }
 }
 
 fn randomY(minValue: f32, maxValue: f32) -> f32 {
@@ -77,8 +81,18 @@ mod tests {
     #[test]
     fn test_split() {
         let mut list = PointList::new(100.0, 100.0);
-        //let start =
         split(list.values[0], list.values[1], &mut list.values, 5.0, 20.0);
         println!("Point list: {:?}", list);
+    }
+
+    #[test]
+    fn test_sort_after_split() {
+        let mut list = PointList::new(100.0, 100.0);
+        split(list.values[0], list.values[1], &mut list.values, 5.0, 20.0);
+        list.sort();
+        println!("Point list (sorted): {:?}", list);
+        for idx in 1..list.values.len() {
+            assert_eq!(list.values[idx - 1].x < list.values[idx].x, true);
+        }
     }
 }
