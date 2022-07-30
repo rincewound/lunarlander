@@ -41,22 +41,6 @@ fn split(a: Vec2d, b: Vec2d, list: &mut Vec<Vec2d>, xMinDist: f32, yMaxDelta: f3
     list.push(newPoint);
 }
 
-fn interpolate(a: f32, b: f32, w: f32) -> f32 {
-    if w < 0.0 {
-        a
-    } else if w > 1.0 {
-        b
-    } else {
-        (b - a) * w + a
-    }
-}
-
-pub fn interpolate2d(a: &Vec2d, b: &Vec2d, maxYdelta: f32) -> Vec2d {
-    let x = interpolate(a.x, b.x, 0.5);
-    let y = interpolate(a.y, b.y, 0.5);
-    Vec2d::new(x, y)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::map::*;
@@ -65,20 +49,6 @@ mod tests {
     fn test_list_gen() {
         let li = PointList::new(10.0, 20.0);
         assert_eq!(li.values.len(), 2);
-    }
-    #[test]
-    fn test_interpolate() {
-        let x = interpolate(5.0, 10.0, 0.5);
-        assert_eq!(x, 7.5);
-        let x = interpolate(8.0, 12.0, 0.25);
-        assert_eq!(x, 9.0);
-    }
-
-    #[test]
-    fn test_interpolat2d() {
-        let v = interpolate2d(&Vec2d::new(5.0, 5.0), &Vec2d::new(9.0, 9.0), 0.5);
-        assert_eq!(v.x, 7.0);
-        assert_eq!(v.y, 7.0);
     }
 
     #[test]
