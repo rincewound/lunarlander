@@ -10,16 +10,21 @@ pub struct PointList {
 const X_MAX_DELTA: f32 = 10.0;
 const Y_MAX_DELTA: f32 = 200.0;
 const Y_DELTA_DIVIDOR: f32 = 1.70;
+const X_START_POINTS: usize = 10;
 
 impl PointList {
     pub fn new(maxX: f32, maxY: f32) -> Self {
-        let start_points = [
-            Box::new(Vec2d::new(0.0, randomY(0.0, maxY))),
-            Box::new(Vec2d::new(maxX, randomY(0.0, maxY))),
-        ];
+        let mut start_points: Vec<Box<Vec2d>> = Vec::new();
+        for val in (0..=(maxX as usize)).step_by((maxX as usize) / X_START_POINTS) {
+            let val = val as f32;
+            println!("Start point val: {}", val);
+            start_points.push(Box::new(Vec2d::new(val, randomY(0.0, maxY))))
+        }
         let mut gen_map = Vec::new();
 
+        gen_map.push(start_points.first().unwrap().clone());
         for idx in 1..start_points.len() {
+            gen_map.push(start_points[idx].clone());
             split(
                 start_points[idx - 1].clone(),
                 start_points[idx].clone(),
@@ -92,7 +97,9 @@ mod tests {
     #[test]
     fn test_list_gen() {
         let li = PointList::new(10.0, 20.0);
-        assert_eq!(li.values.len(), 3);
+        println!("Point list: {:?}", li);
+        assert_eq!(li.values.first().unwrap().x == 0.0, true);
+        assert_eq!(li.values.last().unwrap().x == 10.0, true);
     }
 
     #[test]
