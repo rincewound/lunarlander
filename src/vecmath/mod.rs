@@ -12,7 +12,7 @@ pub struct TransformationMatrix {
 }
 
 impl Vec2d {
-    pub fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: f32, y: f32) -> Self {
         Vec2d { x, y }
     }
 

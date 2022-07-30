@@ -7,6 +7,7 @@ use sdl2::video::Window;
 use std::time::Duration;
 
 mod draw;
+mod graphics;
 mod map;
 mod simulation;
 mod vecmath;
