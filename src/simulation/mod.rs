@@ -2,7 +2,8 @@ use std::num;
 
 use sdl2::pixels::Color;
 
-use crate::{draw, map::PointList, vecmath::Vec2d};
+use crate::{draw, map::PointList, vecmath::{Vec2d, self}};
+use crate::graphics;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -124,8 +125,31 @@ impl World {
         self.do_collision_detection();
     }
 
-    pub(crate) fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255), false).unwrap();
+
+        //draw the lander:
+        let id;
+        {
+            // This scope makes sure, that we only keep the lander
+            // borrowed as long as necessary
+            let lander = self.lander.as_ref().unwrap();
+            id = lander.entity_id;
+        }
+        let entity = self.get_entity(id);
+        let lander_pos = entity.position;
+
+        let scale = vecmath::TransformationMatrix::scale(10.0,10.0);
+        let translate =vecmath::TransformationMatrix::translation(100.0, 200.0);
+        //let translate =vecmath::TransformationMatrix::unit();
+        let transform = translate * scale;
+        let items = [&graphics::LanderTop, &graphics::LanderMiddle, &graphics::LanderBottom, &graphics::LanderDrive];
+        for lander_part in items.iter()
+        {
+            let geometry = transform.transform_many(&lander_part.to_vec());
+            draw::draw_vec_strip(canvas, &geometry, Color::RGB(255, 255, 255), true);
+        }
+
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {

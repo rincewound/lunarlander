@@ -98,10 +98,30 @@ impl TransformationMatrix {
         }
     }
 
+    pub fn scale(sx: f32, sy: f32) -> Self
+    {
+        TransformationMatrix {
+            m: [
+            [sx, 0.0, 0.0], 
+            [0.0, sy, 0.0], 
+            [0.0, 0.0, 1.0]],
+        }
+    }
+
     pub fn transform(&self, v: &Vec2d) -> Vec2d {
         let x = self.m[0][0] * v.x + self.m[0][1] * v.y + self.m[0][2] * 1.0;
         let y = self.m[1][0] * v.x + self.m[1][1] * v.y + self.m[1][2] * 1.0;
         Vec2d { x, y }
+    }
+
+    pub fn transform_many(&self, v: &Vec<Vec2d>) -> Vec<Vec2d>
+    {
+        let mut result:Vec<Vec2d> = Vec::new();
+        for vector in v.iter()
+        {
+            result.push(self.transform(vector));
+        }
+        result
     }
 }
 
@@ -223,5 +243,15 @@ mod tests {
 
         assert_eq!(v2.x, 4.0);
         assert_eq!(v2.y, 6.0);
+    }
+
+    #[test]
+    pub fn scale_works() {
+        let v = Vec2d::new(1.0, 1.0);
+        let xfrom = TransformationMatrix::scale(2.0, 3.0);
+        let res = xfrom.transform(&v);
+
+        assert_eq!(res.x, 2.0);
+        assert_eq!(res.y, 3.0);
     }
 }

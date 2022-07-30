@@ -6,6 +6,8 @@ use sdl2::ttf;
 use sdl2::video::Window;
 use std::path::Path;
 
+use crate::vecmath::Vec2d;
+
 pub trait Drawable {
     fn to_point(&self) -> Point;
 }
@@ -21,6 +23,23 @@ where
 {
     canvas.set_draw_color(color);
     return canvas.draw_line(from.to_point(), to.to_point());
+}
+
+pub fn draw_vec_strip(
+    canvas: &mut Canvas<Window>,
+    points: &Vec<Vec2d>,
+    color: Color,
+    close: bool,
+)
+{  
+    for idx in 1..points.len() {
+        let _ = canvas.draw_line((points[idx - 1].to_point()),  (points[idx].to_point()));
+    }
+
+    if close {
+        let _ = canvas.draw_line((points[points.len()-1].to_point()),  (points[0].to_point()));
+    }
+
 }
 
 pub fn draw_lines<T>(
