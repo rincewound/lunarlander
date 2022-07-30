@@ -2,11 +2,11 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
-use sdl2::sys::KeyCode;
 use sdl2::video::Window;
 use std::time::Duration;
 
 mod draw;
+mod hud;
 mod graphics;
 mod map;
 mod simulation;
@@ -115,5 +115,11 @@ fn draw_example(canvas: &mut Canvas<Window>) {
     let origin = vecmath::Vec2d::new(300.0, 300.0);
     draw::draw_rect(canvas, &origin, 50, 100, Color::RGB(0, 0, 255), true).unwrap();
 
-    draw::draw_text(canvas, "Hello World!", 20, Color::RGB(0, 255, 0)).unwrap();
+    let hud = hud::Hud::new(
+        vecmath::Vec2d::new(0.0, 0.0),
+        vecmath::Vec2d::new(0.0, 0.0),
+        0.0,
+        0,
+    );
+    hud.render(canvas);
 }
