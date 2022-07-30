@@ -10,7 +10,10 @@ pub struct PointList {
 impl PointList {
     pub fn new(maxX: f32, maxY: f32) -> Self {
         PointList {
-            values: Vec::from([Vec2d::new(0.0, 0.0), Vec2d::new(maxX, maxY)]),
+            values: Vec::from([
+                Vec2d::new(0.0, randomY(0.0, maxY)),
+                Vec2d::new(maxX, randomY(0.0, maxY)),
+            ]),
         }
     }
 
