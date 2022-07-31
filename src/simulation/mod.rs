@@ -129,13 +129,21 @@ impl World {
 
         // Consume fuel
         let mut lander = self.lander.as_mut().unwrap();
-
+        let mut disableThrust = false; 
         if lander.drive_enabled {
             lander.fuel -= time_in_ms / 1000.0;
+            if lander.fuel <= 0.0
+            {
+                lander.drive_enabled = false;
+                disableThrust = true;
+            }
         }
 
         let mut next_angle = lander.facing.angle() + lander.rotation * (time_in_ms / 1000.0);
         lander.facing = Vec2d::from_angle(next_angle);
+
+        self.thrust_toggle(disableThrust);
+
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -198,23 +206,18 @@ impl World {
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
         let id;
         let thrust_dir;
+        let hasFuel;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_mut().unwrap();
-            if lander.fuel > 0
-            {
-                thrust_dir = lander.facing;
-                lander.drive_enabled = enable;
-                id = lander.entity_id;
-            }
-            else 
-            {
-                lander.drive_enabled = false;
-            }
+            thrust_dir = lander.facing;       
+            id = lander.entity_id;
+            hasFuel = lander.fuel > 0.0;
+            lander.drive_enabled = hasFuel && enable;
         }
         let entity = self.get_entity(id);
-        if enable {
+        if enable && hasFuel{
             entity.set_acceleration(thrust_dir * -5.0);
         } else {
             entity.set_acceleration(Vec2d::default());
