@@ -11,6 +11,7 @@ mod graphics;
 mod map;
 mod simulation;
 mod vecmath;
+mod collision;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;

@@ -7,6 +7,7 @@ use crate::{
     draw, hud,
     map::PointList,
     vecmath::{self, Vec2d},
+    collision,
 };
 
 struct Physics {
@@ -18,6 +19,7 @@ pub struct Entity {
     position: Vec2d,
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
+    update: bool,
 }
 
 pub struct Lander {
@@ -42,6 +44,7 @@ impl Entity {
             position: Vec2d::default(),
             direction: Vec2d::default(),
             acceleration: Vec2d::default(),
+            update: true,
         }
     }
 
@@ -51,6 +54,10 @@ impl Entity {
 
     pub fn set_position(&mut self, position: Vec2d) {
         self.position = position;
+    }
+
+    pub fn set_update(&mut self, update: bool) {
+        self.update = update;
     }
 }
 
@@ -77,11 +84,14 @@ impl Physics {
                 // update direction by applying gravity:
                 let gravity_fragment =
                     self.gravity_direction.clone() * (self.gravity * sim_time_in_seconds);
-                e.direction = e.direction + gravity_fragment;
-                // update direction by appliying acceleration:
-                let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
-                e.direction = e.direction + accel_fragment;
-                e.position = e.position + e.direction.clone() * (sim_time_in_seconds);
+
+                if e.update {
+                    e.direction = e.direction + gravity_fragment;
+                    // update direction by appliying acceleration:
+                    let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
+                    e.direction = e.direction + accel_fragment;
+                    e.position = e.position + e.direction.clone() * (sim_time_in_seconds);
+                }
 
                 // TBD: Check if something like a terminal velocity would be a good idea
                 // -> This would probably make the game a bit easier and also make the physics
@@ -179,7 +189,7 @@ impl World {
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
 
-        let scale = vecmath::TransformationMatrix::scale(5.0, 5.0);
+        let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
         let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
         let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
         let transform = translate * rotation * scale;
@@ -244,7 +254,25 @@ impl World {
         }
     }
 
-    fn do_collision_detection(&self) {}
+    fn do_collision_detection(&mut self)
+    {
+        if let Some(lander) = self.lander.as_ref() {
+            let id = lander.entity_id;
+            let position;
+            let direction;
+            {
+                let entity = self.get_entity(id);
+                position = entity.position;
+                direction = entity.direction;
+            }
+
+            if let Some(collision) = collision::detect_collision(
+                &position, &direction, self.map.get_values()) {
+                    let entity = self.get_entity(id);
+                    entity.set_update(false);
+            }
+        }
+    }
 
     fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if let Some(lander) = self.lander.as_ref() {
