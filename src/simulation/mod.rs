@@ -135,14 +135,6 @@ impl World {
         }
 
         let mut next_angle = lander.facing.angle() + lander.rotation * (time_in_ms / 1000.0);
-        // if next_angle <= 0.0 {
-        //     next_angle = 2.0 * PI;
-        // }
-        // if next_angle > 2.0 * PI
-        // {
-        //     next_angle = 0.0
-        // }
-
         lander.facing = Vec2d::from_angle(next_angle);
 
         // Do collision detection, fail if we collided with the environment
@@ -162,13 +154,17 @@ impl World {
 
         //draw the lander:
         let id;
+        let thrust_enabled;
         let lander_rot;
+        let fuel;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_ref().unwrap();
             id = lander.entity_id;
             lander_rot = lander.facing;
+            thrust_enabled = lander.drive_enabled;
+            fuel = lander.fuel;
         }
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
@@ -187,6 +183,16 @@ impl World {
             let geometry = transform.transform_many(&lander_part.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
+
+        if thrust_enabled {
+            let geometry;
+            if ((fuel * 10.0) as i32) % 2 == 0 {
+                geometry = transform.transform_many(&graphics::FlameA.to_vec());
+            } else {
+                geometry = transform.transform_many(&graphics::FlameB.to_vec());
+            }
+            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+        }
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
@@ -196,13 +202,20 @@ impl World {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_mut().unwrap();
-            thrust_dir = lander.facing;
-            lander.drive_enabled = enable;
-            id = lander.entity_id;
+            if lander.fuel > 0
+            {
+                thrust_dir = lander.facing;
+                lander.drive_enabled = enable;
+                id = lander.entity_id;
+            }
+            else 
+            {
+                lander.drive_enabled = false;
+            }
         }
         let entity = self.get_entity(id);
         if enable {
-            entity.set_acceleration(thrust_dir * -15.0);
+            entity.set_acceleration(thrust_dir * -5.0);
         } else {
             entity.set_acceleration(Vec2d::default());
         }
