@@ -1,9 +1,13 @@
-use std::{num, f32::consts::PI};
+use std::{f32::consts::PI, num};
 
 use sdl2::pixels::Color;
 
-use crate::{draw, map::PointList, vecmath::{Vec2d, self}, hud};
 use crate::graphics;
+use crate::{
+    draw, hud,
+    map::PointList,
+    vecmath::{self, Vec2d},
+};
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -21,7 +25,7 @@ pub struct Lander {
     fuel: f32,     // in seconds!
     facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
     drive_enabled: bool,
-    rotation: f32
+    rotation: f32,
 }
 
 pub struct World {
@@ -102,7 +106,7 @@ impl World {
             fuel: 20.0,
             facing: Vec2d::new(0.0, 1.0),
             drive_enabled: false,
-            rotation: 0.0
+            rotation: 0.0,
         });
         w
     }
@@ -126,15 +130,14 @@ impl World {
         // Consume fuel
         let mut lander = self.lander.as_mut().unwrap();
 
-        if lander.drive_enabled
-        {
+        if lander.drive_enabled {
             lander.fuel -= time_in_ms / 1000.0;
         }
 
         let mut next_angle = lander.facing.angle() + lander.rotation * (time_in_ms / 1000.0);
         // if next_angle <= 0.0 {
         //     next_angle = 2.0 * PI;
-        // } 
+        // }
         // if next_angle > 2.0 * PI
         // {
         //     next_angle = 0.0
@@ -148,7 +151,13 @@ impl World {
     }
 
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
-        draw::draw_lines(canvas, &self.map.get_values(), Color::RGB(255, 255, 255), false).unwrap();
+        draw::draw_lines(
+            canvas,
+            &self.map.get_values(),
+            Color::RGB(255, 255, 255),
+            false,
+        )
+        .unwrap();
         self.renderHud(canvas);
 
         //draw the lander:
@@ -164,17 +173,20 @@ impl World {
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
 
-        let scale = vecmath::TransformationMatrix::scale(10.0,10.0);
-        let translate =vecmath::TransformationMatrix::translation_v(lander_pos);
+        let scale = vecmath::TransformationMatrix::scale(10.0, 10.0);
+        let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
         let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
         let transform = translate * rotation * scale;
-        let items = [&graphics::LanderTop, &graphics::LanderMiddle, &graphics::LanderBottom, &graphics::LanderDrive];
-        for lander_part in items.iter()
-        {
+        let items = [
+            &graphics::LanderTop,
+            &graphics::LanderMiddle,
+            &graphics::LanderBottom,
+            &graphics::LanderDrive,
+        ];
+        for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
-
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
@@ -196,38 +208,29 @@ impl World {
         }
     }
 
-    pub(crate) fn rotation_left_toggle(&mut self, enable: bool) 
-    {
+    pub(crate) fn rotation_left_toggle(&mut self, enable: bool) {
         let lander = self.lander.as_mut().unwrap();
-        if enable == true
-        {
+        if enable == true {
             lander.rotation = -1.0;
-        }
-        else 
-        {
+        } else {
             lander.rotation = 0.0;
         }
     }
 
-    pub(crate) fn rotation_right_toggle(&mut self, enable: bool) 
-    {
+    pub(crate) fn rotation_right_toggle(&mut self, enable: bool) {
         let lander = self.lander.as_mut().unwrap();
-        if enable == true
-        {
+        if enable == true {
             lander.rotation = 1.0;
-        }
-        else 
-        {
+        } else {
             lander.rotation = 0.0;
         }
     }
 
     fn do_collision_detection(&self) {}
 
-    fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>)
-    {
+    fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if let Some(lander) = self.lander.as_ref() {
-            let fuel  = lander.fuel;
+            let fuel = lander.fuel;
             let id = lander.entity_id;
             let entity = self.get_entity(id);
             let position = entity.position;

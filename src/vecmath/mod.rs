@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{arch::x86_64::_mm_sqrt_ps, f32::consts::PI};
 
 use crate::draw;
 
@@ -18,9 +18,11 @@ impl Vec2d {
         Vec2d { x, y }
     }
 
-    pub fn from_angle(angle: f32) -> Self
-    {
-        return Vec2d { x: angle.cos(), y: angle.sin() }
+    pub fn from_angle(angle: f32) -> Self {
+        return Vec2d {
+            x: angle.cos(),
+            y: angle.sin(),
+        };
     }
 
     pub fn default() -> Self {
@@ -31,35 +33,25 @@ impl Vec2d {
         return (self.x * self.x + self.y * self.y).sqrt();
     }
 
-    pub fn normalized(&self) -> Vec2d
-    {
-        let x =self.clone();
+    pub fn normalized(&self) -> Vec2d {
+        let x = self.clone();
         return x / x.len();
     }
 
-    pub fn angle(&self) -> f32
-    {
+    pub fn angle(&self) -> f32 {
         let n = self.normalized();
-        return n.y.asin();
+        let norm = Vec2d::new(1.0, 0.0);
+
+        let dot = (n.x * norm.x + n.y * norm.y);
+        let div =
+            (n.x.powf(2.0) + n.y.powf(2.0)).sqrt() * (norm.x.powf(2.0) + norm.y.powf(2.0)).sqrt();
+        return (dot / div).acos();
     }
 
-    pub fn rotate(&self, rel_rot: f32) -> Vec2d
-    {
-        let mut a = self.angle() + rel_rot;
-        while a > 2.0 * PI
-        {
-            a -= 2.0 * PI;
-        }
-        
-        while a < 0.0
-        {
-            a += 2.0 * PI;
-        }
-
-
+    pub fn rotate(&self, rel_rot: f32) -> Vec2d {
+        let a = self.angle() + rel_rot;
         return Vec2d::from_angle(a);
     }
-
 }
 
 impl std::ops::Add<Vec2d> for Vec2d {
@@ -119,13 +111,11 @@ impl TransformationMatrix {
         }
     }
 
-    pub fn translation_v(v: Vec2d) -> TransformationMatrix
-    {
+    pub fn translation_v(v: Vec2d) -> TransformationMatrix {
         Self::translation(v.x, v.y)
     }
 
-    pub fn rotation_v(v: Vec2d) -> TransformationMatrix
-    {
+    pub fn rotation_v(v: Vec2d) -> TransformationMatrix {
         Self::rotate(v.angle())
     }
 
@@ -209,8 +199,7 @@ mod tests {
     }
 
     #[test]
-    pub fn angle_works()
-    {
+    pub fn angle_works() {
         let v = Vec2d::new(1.0, 0.0);
         assert_eq!(v.angle(), 0.0);
         let v2 = Vec2d::new(0.0, 1.0);
@@ -297,5 +286,30 @@ mod tests {
 
         assert_eq!(res.x, 2.0);
         assert_eq!(res.y, 3.0);
+    }
+    #[test]
+    pub fn rotation_past_180deg_works() {
+        // Creates a vec pointing -1/0
+        let v = Vec2d::from_angle(PI);
+        assert_eq!(v.x, -1.0);
+        assert!(v.y.abs() < 0.001);
+
+        // rotate by 90°, resulting in 0/1
+        let v2 = v.rotate(PI / 2.0);
+        assert_eq!(v2.y, -1.0);
+        assert!(v2.x.abs() < 0.001);
+    }
+
+    #[test]
+    pub fn rotation_past_360deg_works() {
+        // Creates a vec pointing 1/0
+        let v = Vec2d::from_angle(2.0 * PI);
+        assert_eq!(v.x, 1.0);
+        assert!(v.y.abs() < 0.001);
+
+        // rotate by 90°, resulting in 0/1
+        let v2 = v.rotate(PI / 2.0);
+        assert_eq!(v2.y, 1.0);
+        assert!(v2.x.abs() < 0.001);
     }
 }
