@@ -4,7 +4,7 @@ use rand::prelude::*;
 
 #[derive(Debug)]
 pub struct PointList {
-    values: Vec<Box<Vec2d>>,
+    values: Vec<Vec2d>,
 }
 
 const X_MAX_DELTA: f32 = 10.0;
@@ -14,11 +14,11 @@ const X_START_POINTS: usize = 10;
 
 impl PointList {
     pub fn new(maxX: f32, maxY: f32) -> Self {
-        let mut start_points: Vec<Box<Vec2d>> = Vec::new();
+        let mut start_points: Vec<Vec2d> = Vec::new();
         for val in (0..=(maxX as usize)).step_by((maxX as usize) / X_START_POINTS) {
             let val = val as f32;
             println!("Start point val: {}", val);
-            start_points.push(Box::new(Vec2d::new(val, randomY(0.0, maxY))))
+            start_points.push(Vec2d::new(val, randomY(0.0, maxY)))
         }
         let mut gen_map = Vec::new();
 
@@ -41,7 +41,7 @@ impl PointList {
         n
     }
 
-    pub fn get_values(self: &Self) -> &Vec<Box<Vec2d>> {
+    pub fn get_values(self: &Self) -> &Vec<Vec2d> {
         &self.values
     }
 
@@ -63,12 +63,12 @@ fn randomY(minValue: f32, maxValue: f32) -> f32 {
     }
 }
 
-fn split(a: Box<Vec2d>, b: Box<Vec2d>, list: &mut Vec<Box<Vec2d>>, xMinDist: f32, yMaxDelta: f32) {
+fn split(a: Vec2d, b: Vec2d, list: &mut Vec<Vec2d>, xMinDist: f32, yMaxDelta: f32) {
     assert_eq!(a.x < b.x, true);
     let deltaX = (b.x - a.x) / 2.0;
-    let center = (*a + *b) / 2.0;
+    let center = (a + b) / 2.0;
     let newY = randomY(center.y - (yMaxDelta / 2.0), center.y + (yMaxDelta / 2.0));
-    let newPoint = Box::new(Vec2d::new(a.x + deltaX, newY));
+    let newPoint = Vec2d::new(a.x + deltaX, newY);
     if deltaX > xMinDist {
         split(
             a,
@@ -105,8 +105,8 @@ mod tests {
     #[test]
     fn test_split() {
         let mut list = Vec::from([
-            Box::new(Vec2d::new(0.0, randomY(0.0, 100.0))),
-            Box::new(Vec2d::new(100.0, randomY(0.0, 100.0))),
+            Vec2d::new(0.0, randomY(0.0, 100.0)),
+            Vec2d::new(100.0, randomY(0.0, 100.0)),
         ]);
         split(list[0].clone(), list[1].clone(), &mut list, 5.0, 20.0);
         println!("Point list: {:?}", list);
