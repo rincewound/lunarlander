@@ -12,7 +12,7 @@ const X_MAX_DELTA: f32 = 10.0;
 const Y_MAX_DELTA: f32 = 200.0;
 const Y_DELTA_DIVIDOR: f32 = 1.70;
 const X_START_POINTS: usize = 5;
-const X_LANDING_AREA_SIZE: f32 = 20.0;
+const X_LANDING_AREA_SIZE: f32 = 40.0;
 
 impl PointList {
     pub fn new(maxX: f32, maxY: f32) -> Self {
@@ -22,7 +22,8 @@ impl PointList {
         for stepIdx in 0..=X_START_POINTS {
             start_points.push(Vec2d::new(xStepSize * (stepIdx as f32), randomY(0.0, maxY)))
         }
-        let landingPointsIdx = Self::genLandingPointsIdx(2, start_points.len());
+        let landingPointsIdx =
+            Self::genLandingPointsIdx(2, Uniform::new(1, start_points.len() - 1));
 
         let mut gen_map = Vec::new();
 
@@ -31,6 +32,11 @@ impl PointList {
             if landingPointsIdx.contains(&idx) {
                 let secLandingPoint =
                     gen_map.last().unwrap().clone() + Vec2d::new(X_LANDING_AREA_SIZE, 0.0);
+                println!(
+                    "Landing platform, {:?} {:?}",
+                    gen_map.last().unwrap().clone(),
+                    secLandingPoint.clone()
+                );
                 gen_map.push(secLandingPoint);
             }
             split(
@@ -72,11 +78,9 @@ impl PointList {
         self.values.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
     }
 
-    fn genLandingPointsIdx(numLandings: usize, numStartPoints: usize) -> Vec<usize> {
+    fn genLandingPointsIdx(numLandings: usize, select: Uniform<usize>) -> Vec<usize> {
         let mut rng = rand::thread_rng();
-        rng.sample_iter(Uniform::new(0, numStartPoints))
-            .take(numLandings)
-            .collect()
+        rng.sample_iter(select).take(numLandings).collect()
     }
 }
 
