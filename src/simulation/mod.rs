@@ -177,7 +177,7 @@ impl World {
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
 
-        let scale = vecmath::TransformationMatrix::scale(10.0, 10.0);
+        let scale = vecmath::TransformationMatrix::scale(5.0, 5.0);
         let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
         let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
         let transform = translate * rotation * scale;
