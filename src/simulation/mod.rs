@@ -3,6 +3,7 @@ use std::{f32::consts::PI, num};
 use sdl2::pixels::Color;
 
 use crate::graphics;
+use crate::vecmath::TransformationMatrix;
 use crate::{
     draw, hud,
     map::PointList,
@@ -161,6 +162,15 @@ impl World {
         self.do_collision_detection();
     }
 
+    fn get_lander_transform(&self, lander_pos: Vec2d, lander_rot: Vec2d) -> TransformationMatrix
+    {
+        let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+        let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
+        let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
+        let transform = translate * rotation * scale;
+        transform
+    }
+
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
 
         draw::draw_lines(
@@ -189,10 +199,7 @@ impl World {
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
 
-        let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-        let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
-        let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
-        let transform = translate * rotation * scale;
+        let transform = self.get_lander_transform(lander_pos, lander_rot);
         let items = [
             &graphics::LanderTop,
             &graphics::LanderMiddle,
@@ -266,8 +273,11 @@ impl World {
                 direction = entity.direction;
             }
 
+            let transform = self.get_lander_transform(position, direction);
+            let bbox = transform.transform_many(&graphics::BBox.to_vec());
+
             if let Some(collision) = collision::detect_collision(
-                &position, &direction, self.map.get_values()) {
+                bbox, self.map.get_values()) {
                     let entity = self.get_entity(id);
                     entity.set_update(false);
             }

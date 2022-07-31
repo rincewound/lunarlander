@@ -4,19 +4,20 @@ use sdl2::rect::Rect;
 use sdl2::rect::Point;
 
 
-pub fn detect_collision(position: &Vec2d, direction: &Vec2d, points: &Vec<Vec2d>)
+pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
     -> Option<Vec<(Vec2d, Vec2d)>>
 {
-    let scale = TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-    let origin = Vec2d::new(graphics::LanderBoundBoxOrigin.x + (position.x - graphics::LanderWidth as f32),
-        graphics::LanderBoundBoxOrigin.y + (position.y - graphics::LanderHeight as f32));
-    let scaled_origin = scale.transform(&origin);
+    // let scale = TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+    // let origin = Vec2d::new(graphics::LanderBoundBoxOrigin.x + (position.x - graphics::LanderWidth as f32),
+    //     graphics::LanderBoundBoxOrigin.y + (position.y - graphics::LanderHeight as f32));
+    // let scaled_origin = scale.transform(&origin);
 
-    let bounding_rect = Rect::new(
-        origin.x as i32,
-        origin.y as i32,
-        graphics::LanderWidth * graphics::LanderScale.x as u32,
-        graphics::LanderHeight * graphics::LanderScale.y as u32);
+    // let bounding_rect = Rect::new(
+    //     origin.x as i32,
+    //     origin.y as i32,
+    //     graphics::LanderWidth * graphics::LanderScale.x as u32,
+    //     graphics::LanderHeight * graphics::LanderScale.y as u32);
+    let bounding_rect = Rect::new()
 
     let mut collisions: Vec<(Vec2d, Vec2d)> = Vec::new();
 
