@@ -53,6 +53,13 @@ pub fn main() -> Result<(), String> {
                     sim.thrust_toggle(false);
                 }
 
+                Event::KeyUp {
+                    keycode: Some(Keycode::Left),
+                    ..
+                } => {
+                    sim.rotation_left_toggle(false);
+                }
+
                 Event::KeyDown {
                     keycode: Some(Keycode::Left),
                     ..
@@ -60,25 +67,18 @@ pub fn main() -> Result<(), String> {
                     sim.rotation_left_toggle(true);
                 }
 
-                Event::KeyDown {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => {
-                    sim.rotation_left_toggle(false);
-                }
-
-                Event::KeyUp {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => {
-                    sim.rotation_right_toggle(true);
-                }
-
                 Event::KeyUp {
                     keycode: Some(Keycode::Right),
                     ..
                 } => {
                     sim.rotation_right_toggle(false);
+                }
+
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => {
+                    sim.rotation_right_toggle(true);
                 }
                 _ => {}
             }

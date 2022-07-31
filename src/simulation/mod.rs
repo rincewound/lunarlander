@@ -1,4 +1,4 @@
-use std::num;
+use std::{num, f32::consts::PI};
 
 use sdl2::pixels::Color;
 
@@ -20,6 +20,8 @@ pub struct Lander {
     entity_id: usize,
     fuel: f32,     // in seconds!
     facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
+    drive_enabled: bool,
+    rotation: f32
 }
 
 pub struct World {
@@ -51,8 +53,8 @@ impl Entity {
 impl Physics {
     pub fn default() -> Self {
         Physics {
-            gravity: 9.81,
-            gravity_direction: Vec2d::new(0.0, -1.0),
+            gravity: 9.81 / 24.0,
+            gravity_direction: Vec2d::new(0.0, 1.0),
         }
     }
 
@@ -70,7 +72,7 @@ impl Physics {
 
                 // update direction by applying gravity:
                 let gravity_fragment =
-                    self.gravity_direction.clone() * (self.gravity / sim_time_in_seconds);
+                    self.gravity_direction.clone() * (self.gravity * sim_time_in_seconds);
                 e.direction = e.direction + gravity_fragment;
                 // update direction by appliying acceleration:
                 let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
@@ -98,13 +100,16 @@ impl World {
         w.lander = Some(Lander {
             entity_id: landerId,
             fuel: 20.0,
-            facing: Vec2d::new(0.0, -1.0),
+            facing: Vec2d::new(0.0, 1.0),
+            drive_enabled: false,
+            rotation: 0.0
         });
         w
     }
 
     pub fn create_entity(&mut self) -> usize {
         let mut e = Entity::default();
+        e.set_position(Vec2d::new(200.0, 300.0));
         self.entities.push(e);
         return self.entities.len() - 1;
     }
@@ -120,7 +125,22 @@ impl World {
 
         // Consume fuel
         let mut lander = self.lander.as_mut().unwrap();
-        lander.fuel -= time_in_ms / 1000.0;
+
+        if lander.drive_enabled
+        {
+            lander.fuel -= time_in_ms / 1000.0;
+        }
+
+        let mut next_angle = lander.facing.angle() + lander.rotation * (time_in_ms / 1000.0);
+        // if next_angle <= 0.0 {
+        //     next_angle = 2.0 * PI;
+        // } 
+        // if next_angle > 2.0 * PI
+        // {
+        //     next_angle = 0.0
+        // }
+
+        lander.facing = Vec2d::from_angle(next_angle);
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -133,19 +153,21 @@ impl World {
 
         //draw the lander:
         let id;
+        let lander_rot;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_ref().unwrap();
             id = lander.entity_id;
+            lander_rot = lander.facing;
         }
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
 
         let scale = vecmath::TransformationMatrix::scale(10.0,10.0);
-        let translate =vecmath::TransformationMatrix::translation(100.0, 200.0);
-        //let translate =vecmath::TransformationMatrix::unit();
-        let transform = translate * scale;
+        let translate =vecmath::TransformationMatrix::translation_v(lander_pos);
+        let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
+        let transform = translate * rotation * scale;
         let items = [&graphics::LanderTop, &graphics::LanderMiddle, &graphics::LanderBottom, &graphics::LanderDrive];
         for lander_part in items.iter()
         {
@@ -161,21 +183,44 @@ impl World {
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
-            let lander = self.lander.as_ref().unwrap();
+            let lander = self.lander.as_mut().unwrap();
             thrust_dir = lander.facing;
+            lander.drive_enabled = enable;
             id = lander.entity_id;
         }
         let entity = self.get_entity(id);
         if enable {
-            entity.set_acceleration(thrust_dir * -1.0);
+            entity.set_acceleration(thrust_dir * -15.0);
         } else {
             entity.set_acceleration(Vec2d::default());
         }
     }
 
-    pub(crate) fn rotation_left_toggle(&self, enable: bool) {}
+    pub(crate) fn rotation_left_toggle(&mut self, enable: bool) 
+    {
+        let lander = self.lander.as_mut().unwrap();
+        if enable == true
+        {
+            lander.rotation = -1.0;
+        }
+        else 
+        {
+            lander.rotation = 0.0;
+        }
+    }
 
-    pub(crate) fn rotation_right_toggle(&self, enable: bool) {}
+    pub(crate) fn rotation_right_toggle(&mut self, enable: bool) 
+    {
+        let lander = self.lander.as_mut().unwrap();
+        if enable == true
+        {
+            lander.rotation = 1.0;
+        }
+        else 
+        {
+            lander.rotation = 0.0;
+        }
+    }
 
     fn do_collision_detection(&self) {}
 
