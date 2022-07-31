@@ -13,7 +13,7 @@ fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool
 }
 
 pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
-    -> Option<Vec<Vec2d>>
+    -> Option<Vec<(Vec2d, Vec2d)>>
 {
     // create vector of bounding box lines
     let mut bb_lines: Vec<(Vec2d, Vec2d)> = Vec::new();
@@ -22,14 +22,14 @@ pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
     }
     bb_lines.push((bbox[bbox.len()-1], bbox[0]));
 
-    let mut collisions: Vec<Vec2d> = Vec::new();
+    let mut collisions: Vec<(Vec2d, Vec2d)> = Vec::new();
 
     for idx in 1..points.len() {
         for (a,b) in bb_lines.iter() {
             if let Some(collision_point) = get_line_intersection(*a, *b, points[idx - 1], points[idx]) {
                 if !is_on_segment(*a, *b, collision_point) {continue;}
                 if !is_on_segment(points[idx - 1], points[idx], collision_point) {continue;}               
-                collisions.push(collision_point);
+                collisions.push((points[idx - 1], points[idx]));
             }
         }
     }
