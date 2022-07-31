@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::draw;
 
 #[derive(Copy, Clone, Debug)]
@@ -43,7 +45,18 @@ impl Vec2d {
 
     pub fn rotate(&self, rel_rot: f32) -> Vec2d
     {
-        let a = self.angle() + rel_rot;
+        let mut a = self.angle() + rel_rot;
+        while a > 2.0 * PI
+        {
+            a -= 2.0 * PI;
+        }
+        
+        while a < 0.0
+        {
+            a += 2.0 * PI;
+        }
+
+
         return Vec2d::from_angle(a);
     }
 
