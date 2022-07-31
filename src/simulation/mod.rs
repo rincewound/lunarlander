@@ -92,14 +92,15 @@ impl Physics {
 }
 
 impl World {
-    pub fn new() -> Self {
+    pub fn new(window_width: u32, window_height: u32) -> Self {
         let mut w = World {
             p: Physics::default(),
             entities: Vec::new(),
             lander: None,
-            map: PointList::new(800.0, 500.0),
+            map: PointList::new(window_width as f32, (window_height as f32) / 3.0),
             hud: hud::Hud::new(),
         };
+        w.map.set_window_height(window_height as f32);
         let landerId = w.create_entity();
         w.lander = Some(Lander {
             entity_id: landerId,
@@ -151,6 +152,7 @@ impl World {
     }
 
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+
         draw::draw_lines(
             canvas,
             &self.map.get_values(),

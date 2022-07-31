@@ -15,9 +15,11 @@ mod vecmath;
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
+    let window_width = 800;
+    let window_height = 600;
 
     let window = video_subsystem
-        .window("rust-sdl2 demo: Video", 800, 600)
+        .window("rust-sdl2 demo: Video", window_width, window_height)
         .position_centered()
         .opengl()
         .build()
@@ -30,7 +32,7 @@ pub fn main() -> Result<(), String> {
     canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
 
-    let mut sim = simulation::World::new();
+    let mut sim = simulation::World::new(window_width, window_height);
 
     'running: loop {
         for event in event_pump.poll_iter() {

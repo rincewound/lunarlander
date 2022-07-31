@@ -4,6 +4,7 @@ use rand::prelude::*;
 
 #[derive(Debug)]
 pub struct PointList {
+    window_height: Option<f32>,
     values: Vec<Vec2d>,
 }
 
@@ -43,10 +44,24 @@ impl PointList {
         gen_map.push(start_points.last().unwrap().clone());
 
         let mut n = PointList {
+            window_height: None,
             values: Vec::from(gen_map),
         };
         n.sort();
         n
+    }
+
+    pub fn set_window_height(self: &mut Self, window_height: f32) {
+        if self.window_height.is_none() {
+            for val in self.values.iter_mut() {
+                val.y = window_height - val.y;
+            }
+        } else {
+            for val in self.values.iter_mut() {
+                val.y = window_height - (self.window_height.unwrap() - val.y)
+            }
+        }
+        self.window_height = Some(window_height);
     }
 
     pub fn get_values(self: &Self) -> &Vec<Vec2d> {
