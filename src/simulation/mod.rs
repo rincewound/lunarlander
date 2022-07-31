@@ -205,6 +205,7 @@ impl World {
             &graphics::LanderMiddle,
             &graphics::LanderBottom,
             &graphics::LanderDrive,
+            &graphics::BBox
         ];
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());

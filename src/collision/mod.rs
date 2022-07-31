@@ -4,6 +4,13 @@ use sdl2::rect::Rect;
 use sdl2::rect::Point;
 //use std::cmp::{min, max};
 
+fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool
+{
+    let total = (a - b).len();
+    let dA = (a-sample).len();
+    let dB = (b-sample).len();
+    return ((dA + dB) - total).abs() < 0.001
+}
 
 pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
     -> Option<Vec<Vec2d>>
@@ -13,17 +20,16 @@ pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
     for idx in 1..bbox.len() {
         bb_lines.push((bbox[idx-1], bbox[idx]));
     }
+    bb_lines.push((bbox[bbox.len()-1], bbox[0]));
 
     let mut collisions: Vec<Vec2d> = Vec::new();
 
     for idx in 1..points.len() {
         for (a,b) in bb_lines.iter() {
             if let Some(collision_point) = get_line_intersection(*a, *b, points[idx - 1], points[idx]) {
-                if collision_point.x >= min(a.x, b.x) && collision_point.x <= max(a.x, b.x) &&
-                    collision_point.y >= min(a.y, b.y) && collision_point.y <= max(a.y, b.y)
-                {
-                    collisions.push(collision_point);
-                }
+                if !is_on_segment(*a, *b, collision_point) {continue;}
+                if !is_on_segment(points[idx - 1], points[idx], collision_point) {continue;}               
+                collisions.push(collision_point);
             }
         }
     }
