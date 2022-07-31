@@ -16,6 +16,11 @@ impl Vec2d {
         Vec2d { x, y }
     }
 
+    pub fn from_angle(angle: f32) -> Self
+    {
+        return Vec2d { x: angle.cos(), y: angle.sin() }
+    }
+
     pub fn default() -> Self {
         Vec2d { x: 0.0, y: 0.0 }
     }
@@ -23,6 +28,25 @@ impl Vec2d {
     pub fn len(&self) -> f32 {
         return (self.x * self.x + self.y * self.y).sqrt();
     }
+
+    pub fn normalized(&self) -> Vec2d
+    {
+        let x =self.clone();
+        return x / x.len();
+    }
+
+    pub fn angle(&self) -> f32
+    {
+        let n = self.normalized();
+        return n.y.asin();
+    }
+
+    pub fn rotate(&self, rel_rot: f32) -> Vec2d
+    {
+        let a = self.angle() + rel_rot;
+        return Vec2d::from_angle(a);
+    }
+
 }
 
 impl draw::Drawable for Vec2d {
@@ -86,6 +110,16 @@ impl TransformationMatrix {
         TransformationMatrix {
             m: [[1.0, 0.0, x], [0.0, 1.0, y], [0.0, 0.0, 1.0]],
         }
+    }
+
+    pub fn translation_v(v: Vec2d) -> TransformationMatrix
+    {
+        Self::translation(v.x, v.y)
+    }
+
+    pub fn rotation_v(v: Vec2d) -> TransformationMatrix
+    {
+        Self::rotate(v.angle())
     }
 
     pub fn rotate(angle: f32) -> Self {
@@ -165,6 +199,15 @@ mod tests {
     pub fn len_works() {
         let x = Vec2d::new(1.0, 1.0);
         assert_eq!(2.0_f32.sqrt(), x.len());
+    }
+
+    #[test]
+    pub fn angle_works()
+    {
+        let v = Vec2d::new(1.0, 0.0);
+        assert_eq!(v.angle(), 0.0);
+        let v2 = Vec2d::new(0.0, 1.0);
+        assert_eq!(v2.angle(), PI / 2.0);
     }
 
     #[test]
