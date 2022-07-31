@@ -25,12 +25,6 @@ impl Vec2d {
     }
 }
 
-impl draw::Drawable for Vec2d {
-    fn to_point(&self) -> sdl2::rect::Point {
-        sdl2::rect::Point::new(self.x as i32, self.y as i32)
-    }
-}
-
 impl std::ops::Add<Vec2d> for Vec2d {
     type Output = Vec2d;
 

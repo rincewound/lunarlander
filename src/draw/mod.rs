@@ -8,59 +8,34 @@ use std::path::Path;
 
 use crate::vecmath::Vec2d;
 
-pub trait Drawable {
-    fn to_point(&self) -> Point;
-}
-
-pub fn draw_line<T>(
+pub fn draw_line(
     canvas: &mut Canvas<Window>,
-    from: &T,
-    to: &T,
+    from: &Vec2d,
+    to: &Vec2d,
     color: Color,
 ) -> Result<(), String>
-where
-    T: Drawable,
 {
     canvas.set_draw_color(color);
-    return canvas.draw_line(from.to_point(), to.to_point());
+    return canvas.draw_line(Point::new(from.x as i32, from.y as i32), Point::new(to.x as i32, to.y as i32));
 }
 
-pub fn draw_vec_strip(
+pub fn draw_lines(
     canvas: &mut Canvas<Window>,
     points: &Vec<Vec2d>,
     color: Color,
     close: bool,
-)
-{  
-    for idx in 1..points.len() {
-        let _ = canvas.draw_line((points[idx - 1].to_point()),  (points[idx].to_point()));
-    }
-
-    if close {
-        let _ = canvas.draw_line((points[points.len()-1].to_point()),  (points[0].to_point()));
-    }
-
-}
-
-pub fn draw_lines<T>(
-    canvas: &mut Canvas<Window>,
-    points: &Vec<Box<T>>,
-    color: Color,
-    close: bool,
 ) -> Result<(), String>
-where
-    T: Drawable,
 {
     canvas.set_draw_color(color);
 
     for idx in 1..points.len() {
-        if let Err(error) = draw_line(canvas, &*points[idx - 1], &*points[idx], color) {
+        if let Err(error) = draw_line(canvas, &points[idx - 1], &points[idx], color) {
             return Err(error);
         }
     }
 
     if close {
-        if let Err(error) = draw_line(canvas, &*points[points.len() - 1], &*points[0], color) {
+        if let Err(error) = draw_line(canvas, &points[points.len() - 1], &points[0], color) {
             return Err(error);
         }
     }
@@ -70,18 +45,15 @@ where
 
 pub fn draw_rect<T>(
     canvas: &mut Canvas<Window>,
-    origin: &T,
+    origin: &Vec2d,
     width: u32,
     height: u32,
     color: Color,
     fill: bool,
 ) -> Result<(), String>
-where
-    T: Drawable,
 {
     canvas.set_draw_color(color);
-    let origin_as_point = origin.to_point();
-    let rect = Rect::new(origin_as_point.x, origin_as_point.y, width, height);
+    let rect = Rect::new(origin.x as i32, origin.y as i32, width, height);
 
     if fill {
         return canvas.fill_rect(rect);

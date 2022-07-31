@@ -150,7 +150,7 @@ impl World {
         for lander_part in items.iter()
         {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::draw_vec_strip(canvas, &geometry, Color::RGB(255, 255, 255), true);
+            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
 
     }
