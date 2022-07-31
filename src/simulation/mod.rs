@@ -1,14 +1,14 @@
 use std::{f32::consts::PI, num};
 
 use sdl2::pixels::Color;
+use sdl2::rect::Point;
 
-use crate::graphics;
 use crate::vecmath::TransformationMatrix;
+use crate::graphics::{self, renderGameOver, renderWonText};
 use crate::{
-    draw, hud,
+    collision, draw, hud,
     map::PointList,
     vecmath::{self, Vec2d},
-    collision,
 };
 
 struct Physics {
@@ -31,12 +31,20 @@ pub struct Lander {
     rotation: f32,
 }
 
+#[derive(PartialEq)]
+pub enum State {
+    Running,
+    Won,
+    Lost,
+}
+
 pub struct World {
     p: Physics,
     entities: Vec<Entity>,
     lander: Option<Lander>,
     map: PointList,
     hud: hud::Hud,
+    game_state: State,
 }
 
 impl Entity {
@@ -110,6 +118,7 @@ impl World {
             lander: None,
             map: PointList::new(window_width as f32, (window_height as f32) / 3.0),
             hud: hud::Hud::new(),
+            game_state: State::Running,
         };
         w.map.set_window_height(window_height as f32);
         let landerId = w.create_entity();
@@ -172,7 +181,11 @@ impl World {
     }
 
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
-
+        match self.game_state {
+            State::Won => renderWonText(canvas),
+            State::Lost => renderGameOver(canvas),
+            State::Running => (),
+        }
         draw::draw_lines(
             canvas,
             &self.map.get_values(),
@@ -224,6 +237,9 @@ impl World {
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
+        if self.game_state != State::Running {
+            return;
+        }
         let id;
         let thrust_dir;
         let hasFuel;
@@ -245,6 +261,9 @@ impl World {
     }
 
     pub(crate) fn rotation_left_toggle(&mut self, enable: bool) {
+        if self.game_state != State::Running {
+            return;
+        }
         let lander = self.lander.as_mut().unwrap();
         if enable == true {
             lander.rotation = -1.0;
@@ -254,6 +273,9 @@ impl World {
     }
 
     pub(crate) fn rotation_right_toggle(&mut self, enable: bool) {
+        if self.game_state != State::Running {
+            return;
+        }
         let lander = self.lander.as_mut().unwrap();
         if enable == true {
             lander.rotation = 1.0;

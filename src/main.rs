@@ -3,21 +3,24 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
+use vecmath::Vec2d;
 use std::time::Duration;
 
+mod collision;
 mod draw;
-mod hud;
 mod graphics;
+mod hud;
 mod map;
 mod simulation;
 mod vecmath;
-mod collision;
+
+pub const window_width: u32 = 800;
+pub const window_height: u32 = 600;
+pub const window_center: Vec2d = Vec2d::new(window_width as f32 / 2.0, window_height as f32 / 2.0);
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
-    let window_width = 800;
-    let window_height = 600;
 
     let window = video_subsystem
         .window("rust-sdl2 demo: Video", window_width, window_height)

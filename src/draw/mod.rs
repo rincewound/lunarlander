@@ -69,6 +69,26 @@ pub fn draw_text(
     origin: Point,
     color: Color,
 ) -> Result<(), String> {
+    draw_text_raw(canvas, text, font_size, origin, color, false)
+}
+
+pub fn draw_text_centered(
+    canvas: &mut Canvas<Window>,
+    text: &str,
+    font_size: u16,
+    origin: Point,
+    color: Color,
+) -> Result<(), String> {
+    draw_text_raw(canvas, text, font_size, origin, color, true)
+}
+fn draw_text_raw(
+    canvas: &mut Canvas<Window>,
+    text: &str,
+    font_size: u16,
+    origin: Point,
+    color: Color,
+    centered: bool,
+) -> Result<(), String> {
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
 
     let font_path = Path::new("assets/DejaVuSansMono.ttf");
@@ -80,12 +100,23 @@ pub fn draw_text(
     let texture = creator
         .create_texture_from_surface(&surface)
         .map_err(|e| e.to_string())?;
-    let rect = Rect::new(
-        origin.x,
-        origin.y,
-        texture.query().width,
-        texture.query().height,
-    );
+    let rect = if centered {
+        let text_w = texture.query().width;
+        let text_h = texture.query().height;
+        Rect::new(
+            origin.x - text_w as i32 / 2,
+            origin.y - text_h as i32 / 2,
+            text_w,
+            text_h,
+        )
+    } else {
+        Rect::new(
+            origin.x,
+            origin.y,
+            texture.query().width,
+            texture.query().height,
+        )
+    };
 
     canvas.set_draw_color(color);
     canvas.copy(&texture, None, rect)?;
