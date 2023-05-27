@@ -2,7 +2,7 @@ use std::{arch::x86_64::_mm_sqrt_ps, f32::consts::PI};
 
 use crate::draw;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2d {
     pub x: f32,
     pub y: f32,
@@ -294,7 +294,7 @@ mod tests {
         assert_eq!(v.x, -1.0);
         assert!(v.y.abs() < 0.001);
 
-        // rotate by 90°, resulting in 0/1
+        // rotate by 90°, resulting in 0/-1
         let v2 = v.rotate(PI / 2.0);
         assert_eq!(v2.y, -1.0);
         assert!(v2.x.abs() < 0.001);
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     pub fn rotation_past_360deg_works() {
-        // Creates a vec pointing 1/0
+        // Creates a vec pointing -1/0
         let v = Vec2d::from_angle(2.0 * PI);
         assert_eq!(v.x, 1.0);
         assert!(v.y.abs() < 0.001);

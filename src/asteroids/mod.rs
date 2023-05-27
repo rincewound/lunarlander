@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 
 use crate::{vecmath::Vec2d, simulation::Entity};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Asteroid {
     pub entity_id: usize,
     pub border_points: Vec<Vec2d>,

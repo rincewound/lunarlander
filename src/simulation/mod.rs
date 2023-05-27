@@ -1,8 +1,11 @@
+#![feature(drain_filter)]
+
 use std::{f32::consts::PI, num};
 
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
+use crate::asteroids;
 use crate::vecmath::TransformationMatrix;
 use crate::graphics::{self, renderGameOver, renderWonText};
 use crate::{
@@ -32,6 +35,7 @@ pub struct Lander {
     rotation: f32,
 }
 
+#[derive(Clone, PartialEq)]
 pub struct Missile 
 {
     entity_id: usize,
@@ -332,16 +336,44 @@ impl World {
             let bbox = transform.transform_many(&graphics::BBox.to_vec());
 
 
+            let mut asteroids_to_delete = Vec::<usize>::new();
+            let mut missiles_to_delete = Vec::<usize>::new();
+            
+
             for a in self.asteroids.iter()
             {
+                // Check collision against player:
                 let e = self.get_entity_immutable(a.entity_id);
                 let pts = &a.get_transformed_hull(e);
                 let collision = collision::hit_test(position, pts);     // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
-                if (collision)
+                if collision
                 {
                     self.game_state = State::Lost;
                 }
+
+                // Check collision against missiles
+                for m in self.missiles.iter()
+                {
+                    let ent = self.get_entity_immutable(m.entity_id);
+                    let projectile_collision = collision::hit_test(ent.position, pts);
+
+                    // create two new asteroids, smaller than the previous one, but
+                    // flying in other directions.
+                    // also: Schedule this asteroid for deletion
+                    if projectile_collision
+                    {
+                        asteroids_to_delete.push(a.entity_id);
+                        missiles_to_delete.push(m.entity_id);
+                    }
+
+                }
             }
+
+            // cleanup asteroids:
+            let new_asteroids = self.asteroids.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
+            self.asteroids = new_asteroids.collect();
+            let new_missiles = self.missiles.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
+            self.missiles = new_missiles.collect();
 
         }
 
