@@ -28,7 +28,6 @@ pub struct Entity {
 
 pub struct Lander {
     entity_id: usize,
-    fuel: f32,     // in seconds!
     //facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
     facing: f32,
     drive_enabled: bool,
@@ -138,7 +137,6 @@ impl World {
         let landerId = w.create_entity();
         w.lander = Some(Lander {
             entity_id: landerId,
-            fuel: 20.0,
             facing: 0.0f32,
             drive_enabled: false,
             rotation: 0.0,
@@ -173,17 +171,8 @@ impl World {
         self.p
             .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
-        // Consume fuel
         let mut lander = self.lander.as_mut().unwrap();
         let mut disableThrust = false; 
-        if lander.drive_enabled {
-            lander.fuel -= time_in_ms / 1000.0;
-            if lander.fuel <= 0.0
-            {
-                lander.drive_enabled = false;
-                disableThrust = true;
-            }
-        }
 
         let mut next_angle = lander.facing + 45.0 * lander.rotation * (time_in_ms / 1000.0);
         lander.facing = next_angle; //Vec2d::from_angle(next_angle);
@@ -235,7 +224,6 @@ impl World {
         let id;
         let thrust_enabled;
         let lander_rot;
-        let fuel;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
@@ -243,7 +231,6 @@ impl World {
             id = lander.entity_id;
             lander_rot = lander.facing.to_radians();
             thrust_enabled = lander.drive_enabled;
-            fuel = lander.fuel;
         }
         let entity = self.get_entity(id);
         let lander_pos = entity.position;
@@ -263,11 +250,7 @@ impl World {
 
         if thrust_enabled {
             let geometry;
-            if ((fuel * 10.0) as i32) % 2 == 0 {
-                geometry = transform.transform_many(&graphics::FlameA.to_vec());
-            } else {
-                geometry = transform.transform_many(&graphics::FlameB.to_vec());
-            }
+            geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
     }
@@ -278,18 +261,16 @@ impl World {
         }
         let id;
         let thrust_dir;
-        let hasFuel;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_mut().unwrap();
             thrust_dir = Vec2d::from_angle(lander.facing.to_radians());       
             id = lander.entity_id;
-            hasFuel = lander.fuel > 0.0;
-            lander.drive_enabled = hasFuel && enable;
+            lander.drive_enabled = enable;
         }
         let entity = self.get_entity(id);
-        if enable && hasFuel{
+        if enable {
             entity.set_acceleration(thrust_dir * -5.0);
         } else {
             entity.set_acceleration(Vec2d::default());
@@ -388,12 +369,11 @@ impl World {
 
     fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if let Some(lander) = self.lander.as_ref() {
-            let fuel = lander.facing;
             let id = lander.entity_id;
             let entity = self.get_entity(id);
             let position = entity.position;
             let direction = entity.direction;
-            self.hud.update(position, direction, fuel, 0);
+            self.hud.update(position, direction, 0);
         }
         self.hud.render(canvas);
     }

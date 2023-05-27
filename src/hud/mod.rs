@@ -8,7 +8,6 @@ use sdl2::video::Window;
 pub struct Hud {
     position: Vec2d,
     direction: Vec2d,
-    fuel: f32,
     deaths: u32,
 }
 
@@ -17,24 +16,21 @@ impl Hud {
         Self {
             position: Vec2d::new(0.0, 0.0),
             direction: Vec2d::new(0.0, 0.0),
-            fuel: 0.0,
             deaths: 0,
         }
     }
 
-    pub fn from(position: Vec2d, direction: Vec2d, fuel: f32, deaths: u32) -> Self {
+    pub fn from(position: Vec2d, direction: Vec2d, deaths: u32) -> Self {
         Self {
             position,
             direction,
-            fuel,
             deaths,
         }
     }
 
-    pub fn update(&mut self, position: Vec2d, direction: Vec2d, fuel: f32, deaths: u32) {
+    pub fn update(&mut self, position: Vec2d, direction: Vec2d, deaths: u32) {
         self.position = position;
         self.direction = direction;
-        self.fuel = fuel;
         self.deaths = deaths;
     }
 
@@ -44,10 +40,6 @@ impl Hud {
 
     pub fn updateDirection(&mut self, direction: Vec2d) {
         self.direction = direction;
-    }
-
-    pub fn updateFuel(&mut self, fuel: f32) {
-        self.fuel = fuel;
     }
 
     pub fn updateDeaths(&mut self, deaths: u32) {
@@ -60,7 +52,6 @@ impl Hud {
             "Direction: x = {}, y = {}",
             self.direction.x, self.direction.y
         );
-        let hud_fuel = format!("Fuel: {}", self.fuel);
         let hud_deaths = format!("Deaths: {}", self.deaths);
 
         draw::draw_text(
@@ -81,17 +72,9 @@ impl Hud {
         .unwrap();
         draw::draw_text(
             canvas,
-            &hud_fuel,
-            10,
-            Point::new(0, 20),
-            Color::RGB(0, 255, 0),
-        )
-        .unwrap();
-        draw::draw_text(
-            canvas,
             &hud_deaths,
             10,
-            Point::new(0, 30),
+            Point::new(0, 20),
             Color::RGB(0, 255, 0),
         )
         .unwrap();
