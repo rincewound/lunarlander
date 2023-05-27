@@ -21,6 +21,7 @@ struct Physics {
 
 pub struct Entity {
     position: Vec2d,
+    rotation: f32,       // angle in rad
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
     update: bool,
@@ -62,6 +63,7 @@ impl Entity {
     pub(crate) fn default() -> Self {
         Entity {
             position: Vec2d::default(),
+            rotation: 0.0,
             direction: Vec2d::default(),
             acceleration: Vec2d::default(),
             update: true,
@@ -78,6 +80,11 @@ impl Entity {
 
     pub fn set_update(&mut self, update: bool) {
         self.update = update;
+    }
+    pub fn get_transform(&self) -> TransformationMatrix {
+        let pos = vecmath::TransformationMatrix::translation_v(self.position);
+        let rot = vecmath::TransformationMatrix::rotate(self.rotation);
+        return pos * rot;
     }
 }
 
@@ -145,10 +152,10 @@ impl World {
     }
 
     pub fn create_asteroids(&mut self) {
-        for idx in 0..10 {
+        for idx in 1..=3 {
             let id = self.create_entity();
             self.get_entity(id).set_position(Vec2d { x: (50 + 100 * idx) as f32, y: 50.0 });
-            self.asteroids.push(Asteroid::new(id));
+            self.asteroids.push(Asteroid::new(id, idx));
         }
     }
 
@@ -201,15 +208,8 @@ impl World {
             State::Running => (),
         }
 
-        fn get_position_transform(pos: Vec2d) -> TransformationMatrix {
-            vecmath::TransformationMatrix::translation_v(pos)
-        }
         for ast in self.asteroids.iter() {
-            let trans = vecmath::TransformationMatrix::translation_v(
-                self.get_entity_immutable(ast.entity_id).position
-            );
-            let trans = trans * vecmath::TransformationMatrix::scale(20.0, 20.0);
-            let draw_points = trans.transform_many(&ast.border_points);
+            let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
             draw::draw_lines(
                 canvas,
                 &draw_points,
