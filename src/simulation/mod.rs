@@ -31,6 +31,12 @@ pub struct Lander {
     rotation: f32,
 }
 
+pub struct Missile 
+{
+    entity_id: usize,
+    time_to_live: f32       // in seconds
+}
+
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -41,6 +47,7 @@ pub enum State {
 pub struct World {
     p: Physics,
     entities: Vec<Entity>,
+    missiles: Vec<Missile>,
     lander: Option<Lander>,
     map: PointList,
     hud: hud::Hud,
@@ -119,6 +126,7 @@ impl World {
             map: PointList::new(window_width as f32, (window_height as f32) / 3.0),
             hud: hud::Hud::new(),
             game_state: State::Running,
+            missiles: vec![]
         };
         w.map.set_window_height(window_height as f32);
         let landerId = w.create_entity();
@@ -313,6 +321,14 @@ impl World {
                     }
             }
         }
+
+        for s in self.missiles.iter_mut()
+        {
+            /*
+                insert collision detection with asteroids here!
+             */
+        }
+
     }
 
     fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
