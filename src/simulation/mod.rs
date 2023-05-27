@@ -179,7 +179,7 @@ impl World {
     }
 
     pub fn dismiss_dead_missiles(&mut self) {
-        // self.missiles.retain(|&m| { m.time_to_live > 0.0 })
+        self.missiles.retain(|m| { m.time_to_live > 0.0 });
     }
 
     pub fn get_entity(&mut self, id: usize) -> &mut Entity {
@@ -201,7 +201,8 @@ impl World {
         lander.facing = next_angle; //Vec2d::from_angle(next_angle);
 
         self.thrust_toggle(disableThrust);
-
+        self.update_missile_lifetime(time_in_ms);
+        self.dismiss_dead_missiles();
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -327,6 +328,12 @@ impl World {
             let id = lander.entity_id;
             let position = self.get_entity(id).position;
             self.create_missile(position);
+        }
+    }
+
+    fn update_missile_lifetime(&mut self, time_in_ms: f32) {
+        for missile in self.missiles.iter_mut() {
+            missile.time_to_live -= time_in_ms / 1000.0f32;
         }
     }
 
