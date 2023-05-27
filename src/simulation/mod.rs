@@ -6,8 +6,8 @@ use sdl2::rect::Point;
 use crate::vecmath::TransformationMatrix;
 use crate::graphics::{self, renderGameOver, renderWonText};
 use crate::{
+    asteroids::Asteroid,
     collision, draw, hud,
-    map::PointList,
     vecmath::{self, Vec2d},
 };
 
@@ -50,7 +50,7 @@ pub struct World {
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     lander: Option<Lander>,
-    map: PointList,
+    asteroids: Vec<Asteroid>,
     hud: hud::Hud,
     game_state: State,
 }
@@ -124,12 +124,13 @@ impl World {
             p: Physics::default(),
             entities: Vec::new(),
             lander: None,
-            map: PointList::new(window_width as f32, (window_height as f32) / 3.0),
+            asteroids: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![]
         };
-        w.map.set_window_height(window_height as f32);
+
+        w.create_asteroids();
         let landerId = w.create_entity();
         w.lander = Some(Lander {
             entity_id: landerId,
@@ -141,6 +142,14 @@ impl World {
         w
     }
 
+    pub fn create_asteroids(&mut self) {
+        for idx in 0..10 {
+            let id = self.create_entity();
+            self.get_entity(id).set_position(Vec2d { x: (50 + 100 * idx) as f32, y: 50.0 });
+            self.asteroids.push(Asteroid::new(id));
+        }
+    }
+
     pub fn create_entity(&mut self) -> usize {
         let mut e = Entity::default();
         e.set_position(Vec2d::new(200.0, 300.0));
@@ -150,6 +159,9 @@ impl World {
 
     pub fn get_entity(&mut self, id: usize) -> &mut Entity {
         return &mut self.entities[id];
+    }
+    pub fn get_entity_immutable(&self, id: usize) -> &Entity {
+        return &self.entities[id];
     }
 
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
@@ -195,13 +207,24 @@ impl World {
             State::Lost => renderGameOver(canvas),
             State::Running => (),
         }
-        draw::draw_lines(
-            canvas,
-            &self.map.get_values(),
-            Color::RGB(255, 255, 255),
-            false,
-        )
-        .unwrap();
+
+        fn get_position_transform(pos: Vec2d) -> TransformationMatrix {
+            vecmath::TransformationMatrix::translation_v(pos)
+        }
+        for ast in self.asteroids.iter() {
+            let trans = vecmath::TransformationMatrix::translation_v(
+                self.get_entity_immutable(ast.entity_id).position
+            );
+            let trans = trans * vecmath::TransformationMatrix::scale(20.0, 20.0);
+            let draw_points = trans.transform_many(&ast.border_points);
+            draw::draw_lines(
+                canvas,
+                &draw_points,
+                Color::RGB(255, 255, 255),
+                true,
+            )
+            .unwrap();
+        }
         self.renderHud(canvas);
 
         //draw the lander:
@@ -308,7 +331,7 @@ impl World {
             let transform = self.get_lander_transform(position, direction.angle());
             let bbox = transform.transform_many(&graphics::BBox.to_vec());
 
-            if let Some(collision) = collision::detect_collision(
+/*             if let Some(collision) = collision::detect_collision(
                 bbox, self.map.get_values())
             {
                     let entity = self.get_entity(id);
@@ -320,7 +343,7 @@ impl World {
                         //TODO: check landing speed
                         self.game_state = State::Won
                     }
-            }
+            } */
         }
 
         for s in self.missiles.iter_mut()

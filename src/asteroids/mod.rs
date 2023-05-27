@@ -1,4 +1,4 @@
-use rand::{distributions::uniform::UniformFloat, Rng};
+use rand::Rng;
 use std::f32::consts::PI;
 
 use crate::vecmath::Vec2d;
@@ -17,12 +17,12 @@ impl Asteroid {
         }
     }
     fn new_uniform() -> Vec<Vec2d> {
+        let mut rng = rand::thread_rng();
         let mut circle_points: Vec<Vec2d> = Vec::new();
-        let max_border_points = 14;
+        let max_border_points = rng.gen_range(10..18);
         let angle_step_rad = 2.0 * PI / max_border_points as f32;
         for step_idx in 0..max_border_points {
             let (x, y) = (step_idx as f32 * angle_step_rad).sin_cos();
-            let mut rng = rand::thread_rng();
             let rand_fact = rng.gen_range(0.8..1.2);
             circle_points.push(Vec2d {
                 x: x * rand_fact,
