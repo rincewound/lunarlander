@@ -331,19 +331,18 @@ impl World {
             let transform = self.get_lander_transform(position, direction.angle());
             let bbox = transform.transform_many(&graphics::BBox.to_vec());
 
-/*             if let Some(collision) = collision::detect_collision(
-                bbox, self.map.get_values())
+
+            for a in self.asteroids.iter()
             {
-                    let entity = self.get_entity(id);
-                    entity.set_update(false);
-                    let angle = (collision[0].0 - collision[0].1).angle();
-                    if angle > PI / 16.0 && angle < PI - (PI /16.0){
-                        self.game_state = State::Lost
-                    }else {
-                        //TODO: check landing speed
-                        self.game_state = State::Won
-                    }
-            } */
+                let e = self.get_entity_immutable(a.entity_id);
+                let pts = &a.get_transformed_hull(e);
+                let collision = collision::hit_test(position, pts);     // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
+                if (collision)
+                {
+                    self.game_state = State::Lost;
+                }
+            }
+
         }
 
         for s in self.missiles.iter_mut()

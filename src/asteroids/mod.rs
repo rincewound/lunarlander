@@ -1,7 +1,7 @@
 use rand::Rng;
 use std::f32::consts::PI;
 
-use crate::vecmath::Vec2d;
+use crate::{vecmath::Vec2d, simulation::Entity};
 
 #[derive(Debug)]
 pub struct Asteroid {
@@ -31,6 +31,11 @@ impl Asteroid {
         }
         circle_points
     }
+
+    pub fn get_transformed_hull(&self, entity: &Entity) -> Vec<Vec2d>
+    {
+        return self.border_points.clone();
+    } 
 }
 
 #[cfg(test)]
