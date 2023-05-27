@@ -6,6 +6,7 @@ use sdl2::video::Window;
 use vecmath::Vec2d;
 use std::time::Duration;
 
+mod asteroids;
 mod collision;
 mod draw;
 mod graphics;
