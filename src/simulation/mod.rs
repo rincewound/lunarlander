@@ -24,7 +24,7 @@ struct Physics {
 
 pub struct Entity {
     position: Vec2d,
-    rotation: f32,       // angle in rad
+    angle: f32,       // angle in rad
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
     update: bool,
@@ -32,8 +32,6 @@ pub struct Entity {
 
 pub struct Lander {
     entity_id: usize,
-    //facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
-    facing: f32,
     drive_enabled: bool,
     rotation: f32,
 }
@@ -78,7 +76,7 @@ impl Entity {
     pub(crate) fn default() -> Self {
         Entity {
             position: Vec2d::default(),
-            rotation: 0.0,
+            angle: 0.0,
             direction: Vec2d::default(),
             acceleration: Vec2d::default(),
             update: true,
@@ -98,7 +96,7 @@ impl Entity {
     }
     pub fn get_transform(&self) -> TransformationMatrix {
         let pos = vecmath::TransformationMatrix::translation_v(self.position);
-        let rot = vecmath::TransformationMatrix::rotate(self.rotation);
+        let rot = vecmath::TransformationMatrix::rotate(self.angle);
         return pos * rot;
     }
 }
@@ -161,7 +159,6 @@ impl World {
         let landerId = w.create_entity();
         w.lander = Some(Lander {
             entity_id: landerId,
-            facing: 0.0f32,
             drive_enabled: false,
             rotation: 0.0,
         });
@@ -184,9 +181,10 @@ impl World {
     }
 
     pub fn create_missile(&mut self, pos: Vec2d) {
-        let direction = Vec2d::from_angle(self.lander.as_ref().unwrap().facing.to_radians());
         let id = self.create_entity();
-        self.get_entity(id).set_position(pos);
+        let entity = self.get_entity(id);
+        entity.set_position(pos);
+        let direction = Vec2d::from_angle(entity.angle);
         let ent = self.get_entity(id);
         ent.direction = direction * -40.0;
         self.missiles.push(Missile::new(id));
@@ -208,13 +206,14 @@ impl World {
         self.p
             .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
-        let mut lander = self.lander.as_mut().unwrap();
-        let mut disableThrust = false; 
+        let lander = self.lander.as_ref().unwrap();
+        let entity = self.get_entity_immutable(lander.entity_id);
+        let next_angle = entity.angle + (45.0 * lander.rotation * (time_in_ms / 1000.0)).to_radians();
+        let mut entity = self.get_entity(lander.entity_id);
+        entity.angle = next_angle; //Vec2d::from_angle(next_angle);
 
-        let mut next_angle = lander.facing + 45.0 * lander.rotation * (time_in_ms / 1000.0);
-        lander.facing = next_angle; //Vec2d::from_angle(next_angle);
-
-        self.thrust_toggle(disableThrust);
+        let disable_thrust = false;     
+        self.thrust_toggle(disable_thrust);
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
 
@@ -223,12 +222,11 @@ impl World {
         self.do_collision_detection();
     }
 
-    fn get_lander_transform(&self, lander_pos: Vec2d, lander_rot: f32) -> TransformationMatrix
+    fn get_lander_transform(&self, entity: &Entity) -> TransformationMatrix
     {
         let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-        let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
-        let rotation = vecmath::TransformationMatrix::rotate(lander_rot + PI / 2.0);
-        let transform = translate * rotation * scale;
+        let entity_trans = entity.get_transform();
+        let transform = entity_trans * scale;
         transform
     }
 
@@ -256,19 +254,19 @@ impl World {
         //draw the lander:
         let id;
         let thrust_enabled;
-        let lander_rot;
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_ref().unwrap();
             id = lander.entity_id;
-            lander_rot = lander.facing.to_radians();
             thrust_enabled = lander.drive_enabled;
         }
-        let entity = self.get_entity(id);
-        let lander_pos = entity.position;
+        let entity = self.get_entity_immutable(id);
 
-        let transform = self.get_lander_transform(lander_pos, lander_rot);
+        let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+        let entity_trans = entity.get_transform();
+        let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
+        let transform = entity_trans * scale * offset;
         let items = [
             &graphics::LanderTop,
             &graphics::LanderMiddle,
@@ -302,8 +300,14 @@ impl World {
         {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
+            let angle;
+            {
+                let lander = self.lander.as_ref().unwrap();
+                let entity = self.get_entity_immutable(lander.entity_id);
+                angle = entity.angle;
+            }
             let lander = self.lander.as_mut().unwrap();
-            thrust_dir = Vec2d::from_angle(lander.facing.to_radians());       
+            thrust_dir = Vec2d::from_angle(angle);
             id = lander.entity_id;
             lander.drive_enabled = enable;
         }
@@ -357,15 +361,15 @@ impl World {
     {
         if let Some(lander) = self.lander.as_ref() {
             let id = lander.entity_id;
+            let entity = self.get_entity_immutable(id);
             let position;
             let direction;
             {
-                let entity = self.get_entity(id);
                 position = entity.position;
                 direction = entity.direction;
             }
 
-            let transform = self.get_lander_transform(position, direction.angle());
+            let transform = self.get_lander_transform(entity);
             let bbox = transform.transform_many(&graphics::BBox.to_vec());
 
 

@@ -39,7 +39,7 @@ impl Asteroid {
 
     pub fn get_transformed_hull(&self, entity: &Entity) -> Vec<Vec2d> {
         let entity_transform = entity.get_transform();
-        let scale_factor = 6.0 + (self.scale as f32 / 10.0) * 30.0;
+        let scale_factor = 7.0 + (self.scale as f32 * 7.0);
         let scale_transform = vecmath::TransformationMatrix::scale(scale_factor, scale_factor);
         let transform = entity_transform * scale_transform;
         let hull_points = transform.transform_many(&self.border_points);
