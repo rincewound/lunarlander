@@ -184,8 +184,11 @@ impl World {
     }
 
     pub fn create_missile(&mut self, pos: Vec2d) {
+        let direction = Vec2d::from_angle(self.lander.as_ref().unwrap().facing.to_radians());
         let id = self.create_entity();
         self.get_entity(id).set_position(pos);
+        let ent = self.get_entity(id);
+        ent.direction = direction * -40.0;
         self.missiles.push(Missile::new(id));
     }
 
@@ -212,7 +215,7 @@ impl World {
         lander.facing = next_angle; //Vec2d::from_angle(next_angle);
 
         self.thrust_toggle(disableThrust);
-        self.update_missile_lifetime(time_in_ms);
+        self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
 
         // Do collision detection, fail if we collided with the environment
@@ -344,7 +347,7 @@ impl World {
         }
     }
 
-    fn update_missile_lifetime(&mut self, time_in_ms: f32) {
+    fn missile_tick(&mut self, time_in_ms: f32) {
         for missile in self.missiles.iter_mut() {
             missile.time_to_live -= time_in_ms / 1000.0f32;
         }
@@ -426,20 +429,17 @@ impl World {
         let lander_pos = self.get_entity_immutable(lander.entity_id).position.clone();
 
         let texture = textures.get("star").unwrap();
-        //canvas.set_blend_mode(BlendMode::Mul);
         for star in self.starfield.iter()
         {
-            let starpos = star.pos.clone() + lander_pos * (1 + star.layer) as f32;
-
+            let starpos = star.pos.clone() + lander_pos * (0.75 + star.layer as f32) as f32;
             let _ = canvas.copy(texture, None, sdl2::rect::Rect::new(starpos.x as i32, starpos.y as i32, 16 / (1 + star.layer as u32), 16/ (1 + star.layer as u32)));
         }
-        //canvas.set_blend_mode(BlendMode::None);
     }
 
     fn make_starfield() -> Vec<Star> {
         let mut output = Vec::<Star>::new();
         let mut rnd = rand::thread_rng();
-        for _ in 0..1000
+        for _ in 0..2000
         {
             let s = Star {
                 pos: Vec2d::new(rnd.gen_range(-1800..1800) as f32, rnd.gen_range(-1600..1600) as f32),
