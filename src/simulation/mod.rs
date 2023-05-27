@@ -21,6 +21,7 @@ struct Physics {
 
 pub struct Entity {
     position: Vec2d,
+    rotation: f32,       // angle in rad
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
     update: bool,
@@ -58,10 +59,17 @@ pub struct World {
     game_state: State,
 }
 
+impl Missile {
+    pub fn new(id: usize) -> Self {
+        Self { entity_id: id, time_to_live: 5.0f32 }
+    }
+}
+
 impl Entity {
     pub(crate) fn default() -> Self {
         Entity {
             position: Vec2d::default(),
+            rotation: 0.0,
             direction: Vec2d::default(),
             acceleration: Vec2d::default(),
             update: true,
@@ -78,6 +86,11 @@ impl Entity {
 
     pub fn set_update(&mut self, update: bool) {
         self.update = update;
+    }
+    pub fn get_transform(&self) -> TransformationMatrix {
+        let pos = vecmath::TransformationMatrix::translation_v(self.position);
+        let rot = vecmath::TransformationMatrix::rotate(self.rotation);
+        return pos * rot;
     }
 }
 
@@ -145,10 +158,10 @@ impl World {
     }
 
     pub fn create_asteroids(&mut self) {
-        for idx in 0..10 {
+        for idx in 1..=3 {
             let id = self.create_entity();
             self.get_entity(id).set_position(Vec2d { x: (50 + 100 * idx) as f32, y: 50.0 });
-            self.asteroids.push(Asteroid::new(id));
+            self.asteroids.push(Asteroid::new(id, idx));
         }
     }
 
@@ -157,6 +170,16 @@ impl World {
         e.set_position(Vec2d::new(200.0, 300.0));
         self.entities.push(e);
         return self.entities.len() - 1;
+    }
+
+    pub fn create_missile(&mut self, pos: Vec2d) {
+        let id = self.create_entity();
+        self.get_entity(id).set_position(pos);
+        self.missiles.push(Missile::new(id));
+    }
+
+    pub fn dismiss_dead_missiles(&mut self) {
+        // self.missiles.retain(|&m| { m.time_to_live > 0.0 })
     }
 
     pub fn get_entity(&mut self, id: usize) -> &mut Entity {
@@ -201,15 +224,8 @@ impl World {
             State::Running => (),
         }
 
-        fn get_position_transform(pos: Vec2d) -> TransformationMatrix {
-            vecmath::TransformationMatrix::translation_v(pos)
-        }
         for ast in self.asteroids.iter() {
-            let trans = vecmath::TransformationMatrix::translation_v(
-                self.get_entity_immutable(ast.entity_id).position
-            );
-            let trans = trans * vecmath::TransformationMatrix::scale(20.0, 20.0);
-            let draw_points = trans.transform_many(&ast.border_points);
+            let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
             draw::draw_lines(
                 canvas,
                 &draw_points,
@@ -252,6 +268,11 @@ impl World {
             let geometry;
             geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+        }
+
+        for missile in self.missiles.iter() {
+            let pos = self.get_entity_immutable(missile.entity_id).position;
+            draw::draw_line(canvas, &pos, &(pos + Vec2d::new(1.0, 1.0)), Color::RGB(255, 255, 255)).unwrap();
         }
     }
 
@@ -298,6 +319,14 @@ impl World {
             lander.rotation = 1.0;
         } else {
             lander.rotation = 0.0;
+        }
+    }
+
+    pub(crate) fn shoot(&mut self) {
+        if let Some(lander) = self.lander.as_ref() {
+            let id = lander.entity_id;
+            let position = self.get_entity(id).position;
+            self.create_missile(position);
         }
     }
 

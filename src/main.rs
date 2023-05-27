@@ -57,10 +57,16 @@ pub fn main() -> Result<(), String> {
                     keycode: Some(Keycode::Space),
                     ..
                 } => {
+                    sim.shoot();
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Up),
+                    ..
+                } => {
                     sim.thrust_toggle(true);
                 }
                 Event::KeyUp {
-                    keycode: Some(Keycode::Space),
+                    keycode: Some(Keycode::Up),
                     ..
                 } => {
                     sim.thrust_toggle(false);

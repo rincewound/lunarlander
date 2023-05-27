@@ -1,18 +1,23 @@
 use rand::Rng;
 use std::f32::consts::PI;
 
-use crate::{vecmath::Vec2d, simulation::Entity};
+use crate::{
+    simulation::Entity,
+    vecmath::{self, Vec2d},
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Asteroid {
     pub entity_id: usize,
-    pub border_points: Vec<Vec2d>,
+    scale: usize,
+    border_points: Vec<Vec2d>,
 }
 
 impl Asteroid {
-    pub fn new(entity_id: usize) -> Self {
+    pub fn new(entity_id: usize, scale: usize) -> Self {
         Asteroid {
             entity_id: entity_id,
+            scale: scale,
             border_points: Asteroid::new_uniform(),
         }
     }
@@ -32,21 +37,23 @@ impl Asteroid {
         circle_points
     }
 
-    pub fn get_transformed_hull(&self, entity: &Entity) -> Vec<Vec2d>
-    {
-        return self.border_points.clone();
-    } 
+    pub fn get_transformed_hull(&self, entity: &Entity) -> Vec<Vec2d> {
+        let entity_transform = entity.get_transform();
+        let scale_factor = 6.0 + (self.scale as f32 / 10.0) * 30.0;
+        let scale_transform = vecmath::TransformationMatrix::scale(scale_factor, scale_factor);
+        let transform = entity_transform * scale_transform;
+        let hull_points = transform.transform_many(&self.border_points);
+        return hull_points;
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-
     use crate::asteroids::*;
 
     #[test]
     fn test_asteroid_new_gen() {
-        let ast = Asteroid::new(42);
+        let ast = Asteroid::new(42, 5);
         println!("border point list: {:?}", ast.border_points);
         assert_eq!(ast.entity_id, 42);
         assert_eq!(ast.border_points.len(), 14)
