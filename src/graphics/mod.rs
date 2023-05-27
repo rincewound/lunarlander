@@ -38,10 +38,10 @@ pub const LanderWidth: u32 = 6;
 pub const LanderHeight: u32 = 7;
 
 pub const BBox: [Vec2d; 4] = [
-    Vec2d::new(-3.0, 4.0),
-    Vec2d::new(3.0, 4.0),
-    Vec2d::new(3.0, -3.0),
-    Vec2d::new(-3.0, -3.0),
+    Vec2d::new(-2.8, 3.8),
+    Vec2d::new(2.8, 3.8),
+    Vec2d::new(2.8, -2.8),
+    Vec2d::new(-2.8, -2.8),
 ];
 
 
