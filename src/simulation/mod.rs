@@ -59,6 +59,12 @@ pub struct World {
     game_state: State,
 }
 
+impl Missile {
+    pub fn new(id: usize) -> Self {
+        Self { entity_id: id, time_to_live: 5.0f32 }
+    }
+}
+
 impl Entity {
     pub(crate) fn default() -> Self {
         Entity {
@@ -166,6 +172,16 @@ impl World {
         return self.entities.len() - 1;
     }
 
+    pub fn create_missile(&mut self, pos: Vec2d) {
+        let id = self.create_entity();
+        self.get_entity(id).set_position(pos);
+        self.missiles.push(Missile::new(id));
+    }
+
+    pub fn dismiss_dead_missiles(&mut self) {
+        // self.missiles.retain(|&m| { m.time_to_live > 0.0 })
+    }
+
     pub fn get_entity(&mut self, id: usize) -> &mut Entity {
         return &mut self.entities[id];
     }
@@ -253,6 +269,11 @@ impl World {
             geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
+
+        for missile in self.missiles.iter() {
+            let pos = self.get_entity_immutable(missile.entity_id).position;
+            draw::draw_line(canvas, &pos, &(pos + Vec2d::new(1.0, 1.0)), Color::RGB(255, 255, 255)).unwrap();
+        }
     }
 
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
@@ -298,6 +319,14 @@ impl World {
             lander.rotation = 1.0;
         } else {
             lander.rotation = 0.0;
+        }
+    }
+
+    pub(crate) fn shoot(&mut self) {
+        if let Some(lander) = self.lander.as_ref() {
+            let id = lander.entity_id;
+            let position = self.get_entity(id).position;
+            self.create_missile(position);
         }
     }
 
