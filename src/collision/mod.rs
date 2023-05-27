@@ -1,8 +1,12 @@
 use crate::graphics;
 use crate::vecmath::*;
+use geo::Contains;
+use geo::LineString;
+use geo::coord;
+use geo::polygon;
 use sdl2::rect::Rect;
 use sdl2::rect::Point;
-//use std::cmp::{min, max};
+
 
 fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool
 {
@@ -12,6 +16,25 @@ fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool
     return ((dA + dB) - total).abs() < 0.001
 }
 
+fn make_linestring(points: &Vec<Vec2d>) -> LineString
+{
+    let coords = points.iter().map(|v| coord!(x : v.x as f64, y: v.y as f64)).collect();
+    let mut ls = LineString::new(coords);
+    ls
+}
+
+pub fn hit_test(vertex: Vec2d, body: &Vec<Vec2d>) -> bool
+{
+    let ls = make_linestring(body);
+    let poly = geo::Polygon::new(ls, vec![]);
+    let point = coord!{x:vertex.x as f64, y: vertex.y as f64};
+    return poly.contains(&point);
+}
+
+
+/*
+    Detect collision between a bbox and a list of lines (given by means of a pointlist)
+ */
 pub fn detect_collision(bbox: Vec<Vec2d>, points: &Vec<Vec2d>)
     -> Option<Vec<(Vec2d, Vec2d)>>
 {
@@ -82,8 +105,22 @@ fn get_line_intersection(p1: Vec2d, p2: Vec2d, p3: Vec2d, p4: Vec2d) -> Option<V
 #[cfg(test)]
 mod tests {
 
-    use crate::collision;
+    use crate::collision::{self, hit_test};
     use crate::vecmath::Vec2d;
+
+    #[test]
+    fn test_hittest()
+    {
+        let p1 = Vec2d::new(0.0, 0.0);
+        let p2 = Vec2d::new(2.0, 0.0);
+        let p3 = Vec2d::new(2.0, 2.0);
+        let p4 = Vec2d::new(0.0, 2.0);
+
+        let body = vec![p1, p2, p3, p4];
+        let v0 = Vec2d::new(1.0, 1.0);
+
+        assert!(hit_test(v0, &body));
+    }
 
     #[test]
     fn test_line_intersection()

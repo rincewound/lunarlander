@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+geo ="0.25.0"
 
 [dependencies.sdl2]
 version = "0.35"
