@@ -26,7 +26,8 @@ pub struct Entity {
 pub struct Lander {
     entity_id: usize,
     fuel: f32,     // in seconds!
-    facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
+    //facing: Vec2d, // This is the direction the engine is facing, i.e. any thrust is opposite to this!
+    facing: f32,
     drive_enabled: bool,
     rotation: f32,
 }
@@ -81,7 +82,7 @@ impl Physics {
     pub fn default() -> Self {
         Physics {
             gravity: 9.81 / 24.0,
-            gravity_direction: Vec2d::new(0.0, 1.0),
+            gravity_direction: Vec2d::new(0.0, 0.0),
         }
     }
 
@@ -133,7 +134,7 @@ impl World {
         w.lander = Some(Lander {
             entity_id: landerId,
             fuel: 20.0,
-            facing: Vec2d::new(0.0, 1.0),
+            facing: 0.0f32,
             drive_enabled: false,
             rotation: 0.0,
         });
@@ -168,8 +169,8 @@ impl World {
             }
         }
 
-        let mut next_angle = lander.facing.angle() + lander.rotation * (time_in_ms / 1000.0);
-        lander.facing = Vec2d::from_angle(next_angle);
+        let mut next_angle = lander.facing + 45.0 * lander.rotation * (time_in_ms / 1000.0);
+        lander.facing = next_angle; //Vec2d::from_angle(next_angle);
 
         self.thrust_toggle(disableThrust);
 
@@ -179,11 +180,11 @@ impl World {
         self.do_collision_detection();
     }
 
-    fn get_lander_transform(&self, lander_pos: Vec2d, lander_rot: Vec2d) -> TransformationMatrix
+    fn get_lander_transform(&self, lander_pos: Vec2d, lander_rot: f32) -> TransformationMatrix
     {
         let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
         let translate = vecmath::TransformationMatrix::translation_v(lander_pos);
-        let rotation = vecmath::TransformationMatrix::rotate(lander_rot.angle() + PI / 2.0);
+        let rotation = vecmath::TransformationMatrix::rotate(lander_rot + PI / 2.0);
         let transform = translate * rotation * scale;
         transform
     }
@@ -213,7 +214,7 @@ impl World {
             // borrowed as long as necessary
             let lander = self.lander.as_ref().unwrap();
             id = lander.entity_id;
-            lander_rot = lander.facing;
+            lander_rot = lander.facing.to_radians();
             thrust_enabled = lander.drive_enabled;
             fuel = lander.fuel;
         }
@@ -255,7 +256,7 @@ impl World {
             // This scope makes sure, that we only keep the lander
             // borrowed as long as necessary
             let lander = self.lander.as_mut().unwrap();
-            thrust_dir = lander.facing;       
+            thrust_dir = Vec2d::from_angle(lander.facing.to_radians());       
             id = lander.entity_id;
             hasFuel = lander.fuel > 0.0;
             lander.drive_enabled = hasFuel && enable;
@@ -304,7 +305,7 @@ impl World {
                 direction = entity.direction;
             }
 
-            let transform = self.get_lander_transform(position, direction);
+            let transform = self.get_lander_transform(position, direction.angle());
             let bbox = transform.transform_many(&graphics::BBox.to_vec());
 
             if let Some(collision) = collision::detect_collision(
@@ -333,7 +334,7 @@ impl World {
 
     fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if let Some(lander) = self.lander.as_ref() {
-            let fuel = lander.fuel;
+            let fuel = lander.facing;
             let id = lander.entity_id;
             let entity = self.get_entity(id);
             let position = entity.position;
