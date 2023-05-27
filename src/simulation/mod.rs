@@ -1,9 +1,12 @@
 #![feature(drain_filter)]
 
+use std::collections::HashMap;
 use std::{f32::consts::PI, num};
 
+use rand::Rng;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
+use sdl2::render::{Texture, BlendMode};
 
 use crate::asteroids;
 use crate::vecmath::TransformationMatrix;
@@ -49,10 +52,16 @@ pub enum State {
     Lost,
 }
 
+pub struct Star{
+    pos: Vec2d,
+    layer: u8
+}
+
 pub struct World {
     p: Physics,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
+    starfield: Vec<Star>,
     lander: Option<Lander>,
     asteroids: Vec<Asteroid>,
     hud: hud::Hud,
@@ -143,7 +152,9 @@ impl World {
             asteroids: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
-            missiles: vec![]
+            missiles: vec![],
+            starfield: Self::make_starfield()
+
         };
 
         w.create_asteroids();
@@ -218,12 +229,14 @@ impl World {
         transform
     }
 
-    pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, textures: &HashMap<String, Texture>) {
         match self.game_state {
             State::Won => renderWonText(canvas),
             State::Lost => renderGameOver(canvas),
             State::Running => (),
         }
+
+        self.render_starfield(canvas, textures);
 
         for ast in self.asteroids.iter() {
             let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
@@ -406,6 +419,39 @@ impl World {
         }
         self.hud.render(canvas);
     }
+
+    fn render_starfield(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, textures: &HashMap<String, Texture>) 
+    {
+        let lander = self.lander.as_ref().unwrap();
+        let lander_pos = self.get_entity_immutable(lander.entity_id).position.clone();
+
+        let texture = textures.get("star").unwrap();
+        //canvas.set_blend_mode(BlendMode::Mul);
+        for star in self.starfield.iter()
+        {
+            let starpos = star.pos.clone() + lander_pos * (1 + star.layer) as f32;
+
+            let _ = canvas.copy(texture, None, sdl2::rect::Rect::new(starpos.x as i32, starpos.y as i32, 16 / (1 + star.layer as u32), 16/ (1 + star.layer as u32)));
+        }
+        //canvas.set_blend_mode(BlendMode::None);
+    }
+
+    fn make_starfield() -> Vec<Star> {
+        let mut output = Vec::<Star>::new();
+        let mut rnd = rand::thread_rng();
+        for _ in 0..1000
+        {
+            let s = Star {
+                pos: Vec2d::new(rnd.gen_range(-1800..1800) as f32, rnd.gen_range(-1600..1600) as f32),
+                layer:rnd.gen_range(0..3) as u8   
+            };
+            output.push(s);
+
+        }
+        output
+    }
+
+
 }
 
 mod tests {
