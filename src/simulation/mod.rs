@@ -358,13 +358,6 @@ impl World {
 
         }
 
-        for s in self.missiles.iter_mut()
-        {
-            /*
-                insert collision detection with asteroids here!
-             */
-        }
-
     }
 
     fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {

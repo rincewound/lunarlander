@@ -5,6 +5,7 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 use vecmath::Vec2d;
 use std::time::Duration;
+use sdl2::image::LoadTexture;
 
 mod asteroids;
 mod collision;
@@ -38,6 +39,11 @@ pub fn main() -> Result<(), String> {
     let mut event_pump = sdl_context.event_pump()?;
 
     let mut sim = simulation::World::new(window_width, window_height);
+
+    let texture_c = canvas.texture_creator();
+    let star = texture_c
+        .load_texture("./assets/star.png")
+        .unwrap();
 
     'running: loop {
         for event in event_pump.poll_iter() {
