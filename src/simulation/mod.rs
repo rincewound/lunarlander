@@ -9,6 +9,7 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids::{self, MAX_SCALE};
+use crate::draw::draw_lines;
 use crate::graphics::{self, renderGameOver, renderWonText};
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -18,9 +19,19 @@ use crate::{
     vecmath::{self, Vec2d},
 };
 
+const VELOCITY_SPACESHIP: f32 = 50.0;
+const VELOCITY_ASTEROID: f32 = 40.0;
+const VELOCITY_MISSILE: f32 = 90.0;
+
 struct Physics {
     gravity: f32, // force applied per second!
     gravity_direction: Vec2d,
+}
+
+pub enum BorderBehavior {
+    Dismiss,
+    Bounce,
+    BounceSlowdown,
 }
 
 pub struct Entity {
@@ -29,6 +40,8 @@ pub struct Entity {
     angle: f32,          // angle in rad
     direction: Vec2d,    // non normalized, has speed integrated!
     acceleration: Vec2d, // non normalized, has force integrated!
+    max_velocity: f32,
+    border_behavior: BorderBehavior,
     update: bool,
 }
 
@@ -91,6 +104,8 @@ impl Entity {
             angle: 0.0,
             direction: Vec2d::default(),
             acceleration: Vec2d::default(),
+            max_velocity: 0.0,
+            border_behavior: BorderBehavior::Dismiss,
             update: true,
         }
     }
@@ -165,6 +180,11 @@ impl Physics {
                     let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
                     e.direction = e.direction + accel_fragment;
 
+                    e.direction = if e.direction.len() > e.max_velocity {
+                        e.direction.normalized() * e.max_velocity
+                    } else {
+                        e.direction
+                    };
                     let mut new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
 
                     if new_pos.x < 0.0
@@ -172,8 +192,19 @@ impl Physics {
                         || new_pos.x > WorldSize.x
                         || new_pos.y > WorldSize.y
                     {
-                        e.direction = e.direction * -0.2;
-                        new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
+                        match e.border_behavior {
+                            BorderBehavior::Dismiss => {
+                                // TODO: destroy missile/entity
+                            }
+                            BorderBehavior::Bounce => {
+                                e.direction = e.direction * -1.0;
+                                new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
+                            }
+                            BorderBehavior::BounceSlowdown => {
+                                e.direction = e.direction * -0.2;
+                                new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
+                            }
+                        }
                     }
 
                     e.position = new_pos;
@@ -197,6 +228,8 @@ impl World {
 
         let mut lander_entity = Entity::default(0);
         lander_entity.set_position(WorldSize / 2.0);
+        lander_entity.max_velocity = VELOCITY_SPACESHIP;
+        lander_entity.border_behavior = BorderBehavior::BounceSlowdown;
 
         let mut w = World {
             next_entity_id: 1,
@@ -223,7 +256,7 @@ impl World {
         for _ in 1..=count {
             let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
             let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
-            self.create_asteroid(pos, dir, 4);
+            self.create_asteroid(pos, dir, MAX_SCALE);
         }
     }
 
@@ -232,6 +265,8 @@ impl World {
         let ent = self.get_entity(id);
         ent.set_position(pos);
         ent.set_direction(dir);
+        ent.max_velocity = VELOCITY_ASTEROID;
+        ent.border_behavior = BorderBehavior::Bounce;
         self.asteroids.push(Asteroid::new(id, scale));
     }
 
@@ -255,6 +290,7 @@ impl World {
                             Vec2d::from_angle(rng.gen_range(0.0..(2.0 * PI)))
                                 * ((MAX_SCALE + 1 - ast.get_scale()) as f32 * 40.0),
                         );
+                        entity.max_velocity = VELOCITY_ASTEROID;
                         entity_id
                     })
                     .collect();
@@ -276,8 +312,10 @@ impl World {
     pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
         let id = self.create_entity();
         let entity = self.get_entity(id);
-        entity.set_position(pos);
+        entity.position = pos;
         entity.direction = direction * -40.0;
+        entity.max_velocity = VELOCITY_MISSILE;
+        entity.border_behavior = BorderBehavior::Dismiss;
         self.missiles.push(Missile::new(id));
     }
 
