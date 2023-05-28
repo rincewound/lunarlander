@@ -331,25 +331,20 @@ impl World {
         let disable_thrust = false;
         let starship_pos = entity.position.clone();
         let len = self.asteroids.len();
-                // if few asteroids are left, we spawn new ones outside of the player's visibility:
-       
-        if len < 15
-        {
+        // if few asteroids are left, we spawn new ones outside of the player's visibility:
+
+        if len < 15 {
             let mut startX = 0.0;
             let mut startY = 0.0;
-            if starship_pos.x > WorldSize.x / 2.0
-            {
+            if starship_pos.x > WorldSize.x / 2.0 {
                 startX = WorldSize.x;
-            }
-            else {
+            } else {
                 startX = 0.0;
             }
 
-            if starship_pos.y > WorldSize.y / 2.0
-            {
+            if starship_pos.y > WorldSize.y / 2.0 {
                 startY = WorldSize.y;
-            }
-            else {
+            } else {
                 startY = 0.0;
             }
 
@@ -365,8 +360,6 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
-
-
     }
 
     pub(crate) fn render(
@@ -604,13 +597,13 @@ impl World {
 
         let texture = textures.get("star").unwrap();
         for star in self.starfield.iter() {
-            let starpos = star.pos.clone() - lander_pos * (0.75 + star.layer as f32) as f32;
+            let starpos = (star.pos.clone() - lander_pos) * (0.75 + star.layer as f32) as f32;
             let _ = canvas.copy(
                 texture,
                 None,
                 sdl2::rect::Rect::new(
-                    starpos.x as i32,
-                    starpos.y as i32,
+                    starpos.x as i32 % WorldSize.x as i32,
+                    starpos.y as i32 % WorldSize.x as i32,
                     12 / (1 + star.layer as u32),
                     12 / (1 + star.layer as u32),
                 ),
@@ -621,13 +614,13 @@ impl World {
     fn make_starfield() -> Vec<Star> {
         let mut output = Vec::<Star>::new();
         let mut rnd = rand::thread_rng();
-        for _ in 0..2000 {
+        for _ in 0..3000 {
             let s = Star {
                 pos: Vec2d::new(
-                    rnd.gen_range(-1800..1800) as f32,
-                    rnd.gen_range(-1600..1600) as f32,
+                    rnd.gen_range(0..WorldSize.x as i32) as f32,
+                    rnd.gen_range(0..WorldSize.y as i32) as f32,
                 ),
-                layer: rnd.gen_range(0..3) as u8,
+                layer: rnd.gen_range(0..=3) as u8,
             };
             output.push(s);
         }
