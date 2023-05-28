@@ -280,9 +280,9 @@ impl World {
 
         let entity = self.get_entity_immutable(self.lander.entity_id);
         let next_angle =
-            entity.angle + (45.0 * self.lander.rotation * (time_in_ms / 1000.0)).to_radians();
+            entity.angle + (180.0 * self.lander.rotation * (time_in_ms / 1000.0)).to_radians();
         let mut entity = self.get_entity(self.lander.entity_id);
-        entity.angle = next_angle; //Vec2d::from_angle(next_angle);
+        entity.angle = next_angle;
 
         let disable_thrust = false;
         self.thrust_toggle(disable_thrust);
@@ -306,7 +306,7 @@ impl World {
         }
 
         let lander_entity = self.get_entity_immutable(self.lander.entity_id);
-        
+
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
