@@ -194,10 +194,14 @@ impl World {
             rotation: 0.0,
         };
 
+        let mut lander_entity = Entity::default(0);
+        lander_entity.set_position(WorldSize / 2.0);
+
+
         let mut w = World {
             next_entity_id: 1,
             p: Physics::default(),
-            entities: vec![Entity::default(0)],
+            entities: vec![lander_entity],
             lander,
             asteroids: Vec::new(),
             hud: hud::Hud::new(),
