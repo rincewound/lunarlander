@@ -214,19 +214,31 @@ impl World {
             screen_shake_strength: 0.0,
         };
 
-        w.init_asteroids();
+        w.init_asteroids(10);
         w
     }
 
-    fn init_asteroids(&mut self) {
-        for idx in 1..=3 {
-            let id = self.create_entity();
-            self.get_entity(id).set_position(Vec2d {
-                x: (50 + 100 * idx) as f32,
-                y: 50.0,
-            });
-            self.asteroids.push(Asteroid::new(id, idx));
+    fn init_asteroids(&mut self, count: usize)
+    {
+        for idx in 1..=count {
+            let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
+            let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
+            self.create_asteroid(pos, dir);
+            // let id = self.create_entity();
+            // self.get_entity(id).set_position(Vec2d {
+            //     x: (50 + 100 * idx) as f32,
+            //     y: 50.0,
+            // });
+            // self.asteroids.push(Asteroid::new(id, idx));
         }
+    }
+
+    fn create_asteroid(&mut self, pos: Vec2d, dir: Vec2d) {
+        let id = self.create_entity();
+        let mut ent = self.get_entity(id);
+        ent.set_position(pos);
+        ent.set_direction(dir);
+        self.asteroids.push(Asteroid::new(id, 3));
     }
 
     /// do not modify the asteroids array
@@ -332,6 +344,12 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
+
+        // if few asteroids are left, we spawn new ones outside of the player's visibility:
+        if self.asteroids.len() < 10
+        {
+            //self.
+        }
     }
 
     pub(crate) fn render(

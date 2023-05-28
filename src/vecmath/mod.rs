@@ -1,5 +1,7 @@
 use std::{arch::x86_64::_mm_sqrt_ps, f32::consts::PI};
 
+use rand::Rng;
+
 use crate::draw;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -51,6 +53,12 @@ impl Vec2d {
     pub fn rotate(&self, rel_rot: f32) -> Vec2d {
         let a = self.angle() + rel_rot;
         return Vec2d::from_angle(a);
+    }
+
+    pub fn random(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Vec2d
+    {
+        let mut rnd = rand::thread_rng();
+        return Vec2d::new(rnd.gen_range(min_x..max_x), rnd.gen_range(min_y..max_y))   
     }
 }
 
