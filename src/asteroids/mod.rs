@@ -13,8 +13,11 @@ pub struct Asteroid {
     border_points: Vec<Vec2d>,
 }
 
+pub const MAX_SCALE: usize = 4;
+
 impl Asteroid {
     pub fn new(entity_id: usize, scale: usize) -> Self {
+        assert!(scale <= MAX_SCALE);
         Asteroid {
             entity_id: entity_id,
             scale: scale,

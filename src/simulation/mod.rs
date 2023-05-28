@@ -8,7 +8,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::render::{BlendMode, Texture};
 
-use crate::asteroids;
+use crate::asteroids::{self, MAX_SCALE};
 use crate::graphics::{self, renderGameOver, renderWonText};
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -197,7 +197,6 @@ impl World {
         let mut lander_entity = Entity::default(0);
         lander_entity.set_position(WorldSize / 2.0);
 
-
         let mut w = World {
             next_entity_id: 1,
             p: Physics::default(),
@@ -218,8 +217,7 @@ impl World {
         w
     }
 
-    fn init_asteroids(&mut self, count: usize)
-    {
+    fn init_asteroids(&mut self, count: usize) {
         for idx in 1..=count {
             let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
             let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
@@ -238,7 +236,7 @@ impl World {
         let mut ent = self.get_entity(id);
         ent.set_position(pos);
         ent.set_direction(dir);
-        self.asteroids.push(Asteroid::new(id, 3));
+        self.asteroids.push(Asteroid::new(id, MAX_SCALE));
     }
 
     /// do not modify the asteroids array
@@ -262,7 +260,7 @@ impl World {
                         entity.set_position(old_position);
                         entity.set_direction(
                             Vec2d::from_angle(rng.gen_range(0.0..(2.0 * PI)))
-                                * ((4.0 - ast.get_scale() as f32) * 40.0),
+                                * ((MAX_SCALE + 1 - ast.get_scale()) as f32 * 40.0),
                         );
                         entity_id
                     })
@@ -346,8 +344,7 @@ impl World {
         self.do_collision_detection();
 
         // if few asteroids are left, we spawn new ones outside of the player's visibility:
-        if self.asteroids.len() < 10
-        {
+        if self.asteroids.len() < 10 {
             //self.
         }
     }
