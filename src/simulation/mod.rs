@@ -58,7 +58,6 @@ pub struct Star{
 
 pub struct World {
     p: Physics,
-    screen_space_transform: TransformationMatrix,
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
@@ -102,6 +101,13 @@ impl Entity {
         let pos = vecmath::TransformationMatrix::translation_v(self.position);
         let rot = vecmath::TransformationMatrix::rotate(self.angle);
         return pos * rot;
+    }
+
+    pub fn get_screenspace_transform(&self, screenspace_transform: TransformationMatrix) -> TransformationMatrix
+    {
+        let pos = vecmath::TransformationMatrix::translation_v(self.position);
+        let rot = vecmath::TransformationMatrix::rotate(self.angle);
+        return pos * screenspace_transform * rot;
     }
 }
 
@@ -148,7 +154,7 @@ impl Physics {
 impl World {
     pub fn new(window_width: u32, window_height: u32) -> Self {
         let mut w = World {
-            screen_space_transform: TransformationMatrix::unit(),
+
             next_entity_id: 0,
             p: Physics::default(),
             entities: Vec::new(),
@@ -261,19 +267,7 @@ impl World {
         }
 
         self.render_starfield(canvas, textures);
-
-        for ast in self.asteroids.iter() {
-            let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
-            draw::draw_lines(
-                canvas,
-                &draw_points,
-                Color::RGB(255, 255, 255),
-                true,
-            )
-            .unwrap();
-        }
         self.renderHud(canvas);
-
         //draw the lander:
         let id;
         let thrust_enabled;
@@ -284,10 +278,29 @@ impl World {
             id = lander.entity_id;
             thrust_enabled = lander.drive_enabled;
         }
-        let entity = self.get_entity_immutable(id);
+        let lander_entity = self.get_entity_immutable(id);
+
+
+        let mut screen_space_transform = TransformationMatrix::unit();
+        screen_space_transform = screen_space_transform * 
+                                TransformationMatrix::translation_v(lander_entity.position * -1.0) *
+                                TransformationMatrix::translation(400.0, 300.0);
+
+        for ast in self.asteroids.iter() {
+            let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
+            let xformed = screen_space_transform.transform_many(&draw_points);
+            draw::draw_lines(
+                canvas,
+                &xformed,
+                Color::RGB(255, 255, 255),
+                true,
+            )
+            .unwrap();
+        }
+        
 
         let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-        let entity_trans = entity.get_transform();
+        let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
         // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
         let transform = entity_trans * scale * offset;
@@ -310,7 +323,7 @@ impl World {
         }
 
         for missile in self.missiles.iter() {
-            let pos = self.get_entity_immutable(missile.entity_id).position;
+            let pos = screen_space_transform.transform(&self.get_entity_immutable(missile.entity_id).position);
             draw::draw_line(canvas, &pos, &(pos + Vec2d::new(1.0, 1.0)), Color::RGB(255, 255, 255)).unwrap();
         }
     }
