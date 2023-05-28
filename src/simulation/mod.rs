@@ -23,6 +23,7 @@ struct Physics {
 }
 
 pub struct Entity {
+    id: usize,
     position: Vec2d,
     angle: f32,       // angle in rad
     direction: Vec2d,    // non normalized, has speed integrated!
@@ -57,6 +58,7 @@ pub struct Star{
 
 pub struct World {
     p: Physics,
+    next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     starfield: Vec<Star>,
@@ -73,8 +75,9 @@ impl Missile {
 }
 
 impl Entity {
-    pub(crate) fn default() -> Self {
+    pub(crate) fn default(id: usize) -> Self {
         Entity {
+            id,
             position: Vec2d::default(),
             angle: 0.0,
             direction: Vec2d::default(),
@@ -144,6 +147,7 @@ impl Physics {
 impl World {
     pub fn new(window_width: u32, window_height: u32) -> Self {
         let mut w = World {
+            next_entity_id: 0,
             p: Physics::default(),
             entities: Vec::new(),
             lander: None,
@@ -174,10 +178,12 @@ impl World {
     }
 
     pub fn create_entity(&mut self) -> usize {
-        let mut e = Entity::default();
+        let entity_id = self.next_entity_id;
+        self.next_entity_id += 1;
+        let mut e = Entity::default(entity_id);
         e.set_position(Vec2d::new(200.0, 300.0));
         self.entities.push(e);
-        return self.entities.len() - 1;
+        return entity_id;
     }
 
     pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
@@ -192,11 +198,27 @@ impl World {
         self.missiles.retain(|m| { m.time_to_live > 0.0 });
     }
 
+    fn entity_id_to_index(&self, id: usize) -> usize
+    {
+        let mut idx = 0;
+        for e in self.entities.iter()
+        {
+            if e.id == id
+            {
+                return idx;
+            }
+            idx +=1;
+        }
+        panic!("Entity with id {} does not exist", id)
+    }
+
     pub fn get_entity(&mut self, id: usize) -> &mut Entity {
-        return &mut self.entities[id];
+        let entity_index = self.entity_id_to_index(id);
+        return &mut self.entities[entity_index];
     }
     pub fn get_entity_immutable(&self, id: usize) -> &Entity {
-        return &self.entities[id];
+        let entity_index = self.entity_id_to_index(id);
+        return &self.entities[entity_index];
     }
 
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
@@ -435,7 +457,7 @@ impl World {
         let texture = textures.get("star").unwrap();
         for star in self.starfield.iter()
         {
-            let starpos = star.pos.clone() + lander_pos * (0.75 + star.layer as f32) as f32;
+            let starpos = star.pos.clone() - lander_pos * (0.75 + star.layer as f32) as f32;
             let _ = canvas.copy(texture, None, sdl2::rect::Rect::new(starpos.x as i32, starpos.y as i32, 16 / (1 + star.layer as u32), 16/ (1 + star.layer as u32)));
         }
     }
