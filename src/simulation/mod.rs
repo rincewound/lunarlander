@@ -194,7 +194,16 @@ impl World {
         self.missiles.push(Missile::new(id));
     }
 
+    fn garbage_collect_entities(&mut self,  ids_to_remove: Vec<usize>)
+    {
+        self.entities.retain(|x| !ids_to_remove.contains(&x.id));
+    }
+
     pub fn dismiss_dead_missiles(&mut self) {
+        let ids_to_remove: Vec<usize> = self.missiles.iter()
+                                        .filter(|x| {x.time_to_live <= 0.0})
+                                        .map(|m| m.entity_id).collect();
+        self.garbage_collect_entities(ids_to_remove);
         self.missiles.retain(|m| { m.time_to_live > 0.0 });
     }
 
