@@ -67,6 +67,9 @@ pub struct World {
     hud: hud::Hud,
     game_state: State,
     score: u32,
+
+    screen_shake_frames: usize,
+    screen_shake_strength: f32
     sound: sound::Sound,
 }
 
@@ -199,6 +202,8 @@ impl World {
             starfield: Self::make_starfield(),
             score: 0,
             sound: sound::Sound::new(),
+            screen_shake_frames: 0,
+            screen_shake_strength: 0.0,
         };
 
         w.init_asteroids();
@@ -305,12 +310,25 @@ impl World {
             State::Running => (),
         }
 
+        let mut ShakeTransForm = TransformationMatrix::unit();
+        if self.screen_shake_frames > 0 
+        {
+            self.screen_shake_frames -= 1;
+            let mut rnd = rand::thread_rng();
+            ShakeTransForm = ShakeTransForm * TransformationMatrix::translation(
+                rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
+                rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0)
+        }
+
         let lander_entity = self.get_entity_immutable(self.lander.entity_id);
 
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
+            * ShakeTransForm
             * TransformationMatrix::translation(400.0, 300.0); // center to screen
+
+
 
         self.render_starfield(canvas, textures);
         self.render_asteroids(screen_space_transform, canvas);
@@ -361,6 +379,8 @@ impl World {
         let entity = self.get_entity(id);
         if enable {
             entity.set_acceleration(thrust_dir * -5.0);
+            self.screen_shake_frames = 10;
+            self.screen_shake_strength = 4.0;
         } else {
             entity.set_acceleration(Vec2d::default());
         }

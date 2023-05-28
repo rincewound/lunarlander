@@ -1,11 +1,7 @@
-use crate::graphics;
 use crate::vecmath::*;
 use geo::coord;
-use geo::polygon;
 use geo::Contains;
 use geo::LineString;
-use sdl2::rect::Point;
-use sdl2::rect::Rect;
 
 fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool {
     let total = (a - b).len();
