@@ -58,6 +58,7 @@ pub struct Star{
 
 pub struct World {
     p: Physics,
+    screen_space_transform: TransformationMatrix,
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
@@ -147,6 +148,7 @@ impl Physics {
 impl World {
     pub fn new(window_width: u32, window_height: u32) -> Self {
         let mut w = World {
+            screen_space_transform: TransformationMatrix::unit(),
             next_entity_id: 0,
             p: Physics::default(),
             entities: Vec::new(),
@@ -194,7 +196,7 @@ impl World {
         self.missiles.push(Missile::new(id));
     }
 
-    fn garbage_collect_entities(&mut self,  ids_to_remove: Vec<usize>)
+    fn garbage_collect_entities(&mut self,  ids_to_remove: &Vec<usize>)
     {
         self.entities.retain(|x| !ids_to_remove.contains(&x.id));
     }
@@ -203,7 +205,7 @@ impl World {
         let ids_to_remove: Vec<usize> = self.missiles.iter()
                                         .filter(|x| {x.time_to_live <= 0.0})
                                         .map(|m| m.entity_id).collect();
-        self.garbage_collect_entities(ids_to_remove);
+        self.garbage_collect_entities(&ids_to_remove);
         self.missiles.retain(|m| { m.time_to_live > 0.0 });
     }
 
@@ -429,7 +431,9 @@ impl World {
             // cleanup asteroids:
             let new_asteroids = self.asteroids.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
             self.asteroids = new_asteroids.collect();
-            let new_missiles = self.missiles.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
+            self.garbage_collect_entities(&asteroids_to_delete);
+            let new_missiles = self.missiles.clone().into_iter().filter(|a| {!missiles_to_delete.contains(&a.entity_id)});
+            self.garbage_collect_entities(&missiles_to_delete);
             self.missiles = new_missiles.collect();
 
         }
