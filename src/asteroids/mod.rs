@@ -21,6 +21,7 @@ impl Asteroid {
             border_points: Asteroid::new_uniform(),
         }
     }
+
     fn new_uniform() -> Vec<Vec2d> {
         let mut rng = rand::thread_rng();
         let mut circle_points: Vec<Vec2d> = Vec::new();
@@ -37,7 +38,26 @@ impl Asteroid {
         circle_points
     }
 
+    pub fn split(&self, entity_ids: Vec<usize>) -> Vec<Self> {
+        if self.scale > 1 {
+            let new_scale = self.scale - 1;
+            entity_ids
+                .iter()
+                .map(|&id| Asteroid {
+                    entity_id: id,
+                    scale: new_scale,
+                    border_points: Asteroid::new_uniform(),
+                })
+                .collect()
+        }
+        else
+        {
+            Vec::new()
+        }
+    }
+
     pub fn get_transformed_hull(&self, entity: &Entity) -> Vec<Vec2d> {
+        assert_eq!(self.entity_id, entity.get_id());
         let entity_transform = entity.get_transform();
         let scale_factor = 7.0 + (self.scale as f32 * 7.0);
         let scale_transform = vecmath::TransformationMatrix::scale(scale_factor, scale_factor);

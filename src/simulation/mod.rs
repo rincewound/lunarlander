@@ -109,6 +109,10 @@ impl Entity {
         let rot = vecmath::TransformationMatrix::rotate(self.angle);
         return pos * screenspace_transform * rot;
     }
+    
+    pub fn get_id(&self) -> usize {
+        return self.id;
+    }
 }
 
 const WorldSize: Vec2d = Vec2d{x : 1.0 * 800.0, y :1.0 * 600.0};
@@ -188,15 +192,21 @@ impl World {
 
         };
 
-        w.create_asteroids();
+        w.init_asteroids();
         w
     }
 
-    pub fn create_asteroids(&mut self) {
+    fn init_asteroids(&mut self) {
         for idx in 1..=3 {
             let id = self.create_entity();
             self.get_entity(id).set_position(Vec2d { x: (50 + 100 * idx) as f32, y: 50.0 });
             self.asteroids.push(Asteroid::new(id, idx));
+        }
+    }
+
+    fn split_asteroid(&mut self) {
+        let mut rng = rand::thread_rng();
+        for _ in 0..rng.gen_range(2..3) {
         }
     }
 
@@ -404,55 +414,51 @@ impl World {
 
     fn do_collision_detection(&mut self)
     {
-            let id = self.lander.entity_id;
-            let entity = self.get_entity_immutable(id);
-            let position;
-            let direction;
+        let id = self.lander.entity_id;
+        let lander_entity = self.get_entity_immutable(id);
+        let lander_position = lander_entity.position;
+
+        let mut asteroids_to_delete = Vec::<usize>::new();
+        let mut missiles_to_delete = Vec::<usize>::new();
+        
+
+        for ast in self.asteroids.iter()
+        {
+            // Check collision against player:
+            let asteroid_entity = self.get_entity_immutable(ast.entity_id);
+            let asteroid_hull = &ast.get_transformed_hull(asteroid_entity);
+            let collision = collision::hit_test(lander_position, asteroid_hull);     // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
+            if collision
             {
-                position = entity.position;
-                direction = entity.direction;
+                self.game_state = State::Lost;
             }
 
-            let mut asteroids_to_delete = Vec::<usize>::new();
-            let mut missiles_to_delete = Vec::<usize>::new();
-            
-
-            for a in self.asteroids.iter()
+            // Check collision against missiles
+            for m in self.missiles.iter()
             {
-                // Check collision against player:
-                let e = self.get_entity_immutable(a.entity_id);
-                let pts = &a.get_transformed_hull(e);
-                let collision = collision::hit_test(position, pts);     // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
-                if collision
+                let missile_entity = self.get_entity_immutable(m.entity_id);
+                let projectile_collision = collision::hit_test(missile_entity.position, asteroid_hull);
+
+                // create two new asteroids, smaller than the previous one, but
+                // flying in other directions.
+                // also: Schedule this asteroid for deletion
+                if projectile_collision
                 {
-                    self.game_state = State::Lost;
+                    asteroids_to_delete.push(ast.entity_id);
+                    missiles_to_delete.push(m.entity_id);
                 }
 
-                // Check collision against missiles
-                for m in self.missiles.iter()
-                {
-                    let ent = self.get_entity_immutable(m.entity_id);
-                    let projectile_collision = collision::hit_test(ent.position, pts);
-
-                    // create two new asteroids, smaller than the previous one, but
-                    // flying in other directions.
-                    // also: Schedule this asteroid for deletion
-                    if projectile_collision
-                    {
-                        asteroids_to_delete.push(a.entity_id);
-                        missiles_to_delete.push(m.entity_id);
-                    }
-
-                }
             }
+        }
 
-            // cleanup asteroids:
-            let new_asteroids = self.asteroids.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
-            self.asteroids = new_asteroids.collect();
-            self.garbage_collect_entities(&asteroids_to_delete);
-            let new_missiles = self.missiles.clone().into_iter().filter(|a| {!missiles_to_delete.contains(&a.entity_id)});
-            self.garbage_collect_entities(&missiles_to_delete);
-            self.missiles = new_missiles.collect();
+        // cleanup asteroids:
+        let new_asteroids = self.asteroids.clone().into_iter().filter(|a| {!asteroids_to_delete.contains(&a.entity_id)});
+        self.asteroids = new_asteroids.collect();
+        //self.asteroids.append(other);
+        self.garbage_collect_entities(&asteroids_to_delete);
+        let new_missiles = self.missiles.clone().into_iter().filter(|a| {!missiles_to_delete.contains(&a.entity_id)});
+        self.garbage_collect_entities(&missiles_to_delete);
+        self.missiles = new_missiles.collect();
 
     }
 
