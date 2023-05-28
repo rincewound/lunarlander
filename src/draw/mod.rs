@@ -13,10 +13,12 @@ pub fn draw_line(
     from: &Vec2d,
     to: &Vec2d,
     color: Color,
-) -> Result<(), String>
-{
+) -> Result<(), String> {
     canvas.set_draw_color(color);
-    return canvas.draw_line(Point::new(from.x as i32, from.y as i32), Point::new(to.x as i32, to.y as i32));
+    return canvas.draw_line(
+        Point::new(from.x as i32, from.y as i32),
+        Point::new(to.x as i32, to.y as i32),
+    );
 }
 
 pub fn draw_lines(
@@ -24,8 +26,7 @@ pub fn draw_lines(
     points: &Vec<Vec2d>,
     color: Color,
     close: bool,
-) -> Result<(), String>
-{
+) -> Result<(), String> {
     canvas.set_draw_color(color);
 
     for idx in 1..points.len() {
@@ -50,8 +51,7 @@ pub fn draw_rect<T>(
     height: u32,
     color: Color,
     fill: bool,
-) -> Result<(), String>
-{
+) -> Result<(), String> {
     canvas.set_draw_color(color);
     let rect = Rect::new(origin.x as i32, origin.y as i32, width, height);
 

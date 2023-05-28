@@ -1,12 +1,12 @@
 use sdl2::event::Event;
+use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
-use vecmath::Vec2d;
 use std::collections::HashMap;
 use std::time::Duration;
-use sdl2::image::LoadTexture;
+use vecmath::Vec2d;
 
 mod asteroids;
 mod collision;
@@ -42,9 +42,7 @@ pub fn main() -> Result<(), String> {
     let mut sim = simulation::World::new(window_width, window_height);
 
     let texture_c = canvas.texture_creator();
-    let mut star = texture_c
-        .load_texture("./assets/star.png")
-        .unwrap();
+    let mut star = texture_c.load_texture("./assets/star.png").unwrap();
     star.set_blend_mode(sdl2::render::BlendMode::Add);
 
     let mut texture_dict: HashMap<String, Texture> = HashMap::new();

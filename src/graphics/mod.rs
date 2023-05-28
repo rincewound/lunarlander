@@ -2,8 +2,6 @@ use sdl2::{pixels::Color, rect::Point};
 
 use crate::{draw, vecmath::Vec2d, window_center};
 
-
-
 pub const LanderTop: [Vec2d; 4] = [
     Vec2d::new(-2.0, 3.0),
     Vec2d::new(-1.0, 4.0),
@@ -44,7 +42,6 @@ pub const BBox: [Vec2d; 4] = [
     Vec2d::new(-2.8, -2.8),
 ];
 
-
 pub const LeftLeg: [Vec2d; 2] = [Vec2d::new(-2.0, 0.0), Vec2d::new(-3.0, -3.0)];
 
 pub const RightLeg: [Vec2d; 2] = [Vec2d::new(2.0, 0.0), Vec2d::new(3.0, -3.0)];
@@ -66,7 +63,7 @@ pub fn renderGameOver(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         canvas,
         "GAME OVER",
         60,
-        Point::new( window_center.x as i32, window_center.y as i32),
+        Point::new(window_center.x as i32, window_center.y as i32),
         Color::RGB(255, 0, 0),
     )
     .unwrap();

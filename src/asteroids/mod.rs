@@ -49,9 +49,7 @@ impl Asteroid {
                     border_points: Asteroid::new_uniform(),
                 })
                 .collect()
-        }
-        else
-        {
+        } else {
             Vec::new()
         }
     }
