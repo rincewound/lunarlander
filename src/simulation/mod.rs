@@ -218,7 +218,7 @@ impl World {
     }
 
     fn init_asteroids(&mut self, count: usize) {
-        for idx in 1..=count {
+        for _ in 1..=count {
             let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
             let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
             self.create_asteroid(pos, dir, 4);
@@ -227,7 +227,7 @@ impl World {
 
     fn create_asteroid(&mut self, pos: Vec2d, dir: Vec2d, scale: usize) {
         let id = self.create_entity();
-        let mut ent = self.get_entity(id);
+        let ent = self.get_entity(id);
         ent.set_position(pos);
         ent.set_direction(dir);
         self.asteroids.push(Asteroid::new(id, scale));
@@ -242,12 +242,9 @@ impl World {
                 let new_ids: Vec<_> = (0..rng.gen_range(2..3))
                     .map(|_| {
                         let old_position;
-                        let old_direction;
                         {
                             let old_entity = self.get_entity_immutable(ast.entity_id);
                             old_position = old_entity.position;
-                            old_direction = old_entity.direction;
-                            //old_direction.rotate()
                         }
                         let entity_id = self.create_entity();
                         let entity = self.get_entity(entity_id);
@@ -330,6 +327,17 @@ impl World {
 
         let disable_thrust = false;
         let starship_pos = entity.position.clone();
+        self.spawn_asteroids(starship_pos);
+        self.thrust_toggle(disable_thrust);
+        self.missile_tick(time_in_ms);
+        self.dismiss_dead_missiles();
+
+        // Do collision detection, fail if we collided with the environment
+        // or a landingpad (in pad case: if velocity was too high)
+        self.do_collision_detection();
+    }
+
+    fn spawn_asteroids(&mut self, starship_pos: Vec2d) {
         let len = self.asteroids.len();
         // if few asteroids are left, we spawn new ones outside of the player's visibility:
 
@@ -353,13 +361,6 @@ impl World {
 
             self.create_asteroid(start_pos, start_dir, 4);
         }
-        self.thrust_toggle(disable_thrust);
-        self.missile_tick(time_in_ms);
-        self.dismiss_dead_missiles();
-
-        // Do collision detection, fail if we collided with the environment
-        // or a landingpad (in pad case: if velocity was too high)
-        self.do_collision_detection();
     }
 
     pub(crate) fn render(
