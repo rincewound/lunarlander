@@ -2,6 +2,13 @@ use sdl2::{pixels::Color, rect::Point};
 
 use crate::{draw, vecmath::Vec2d, window_center};
 
+pub const StarShip: [Vec2d;4] = [
+    Vec2d::new (0.0, 0.0),
+    Vec2d::new (1.0, -1.0),
+    Vec2d::new (0.0, 2.0),
+    Vec2d::new (-1.0, -1.0),
+];
+
 pub const LanderTop: [Vec2d; 4] = [
     Vec2d::new(-2.0, 3.0),
     Vec2d::new(-1.0, 4.0),
@@ -47,15 +54,15 @@ pub const LeftLeg: [Vec2d; 2] = [Vec2d::new(-2.0, 0.0), Vec2d::new(-3.0, -3.0)];
 pub const RightLeg: [Vec2d; 2] = [Vec2d::new(2.0, 0.0), Vec2d::new(3.0, -3.0)];
 
 pub const FlameA: [Vec2d; 3] = [
-    Vec2d::new(-1.0, -3.0),
-    Vec2d::new(1.0, -3.0),
-    Vec2d::new(0.0, -6.0),
+    Vec2d::new(-0.5, -1.5),
+    Vec2d::new(0.5, -1.5),
+    Vec2d::new(0.0, -3.0),
 ];
 
 pub const FlameB: [Vec2d; 3] = [
-    Vec2d::new(-1.0, -3.0),
-    Vec2d::new(1.0, -3.0),
-    Vec2d::new(0.0, -4.0),
+    Vec2d::new(-0.5, -1.5),
+    Vec2d::new(0.5, -1.5),
+    Vec2d::new(0.0, -1.5),
 ];
 
 pub fn renderGameOver(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {

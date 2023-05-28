@@ -302,64 +302,39 @@ impl World {
             State::Running => (),
         }
 
-        self.render_starfield(canvas, textures);
-        self.renderHud(canvas);
-        //draw the lander:
-        let id;
-        let thrust_enabled;
-        {
-            // This scope makes sure, that we only keep the lander
-            // borrowed as long as necessary
-            id = self.lander.entity_id;
-            thrust_enabled = self.lander.drive_enabled;
-        }
-        let lander_entity = self.get_entity_immutable(id);
+        let lander_entity = self.get_entity_immutable(self.lander.entity_id);
+        let thrust_enabled = self.lander.drive_enabled;
 
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
             * TransformationMatrix::translation(400.0, 300.0); // center to screen
 
+        self.render_starfield(canvas, textures);
+        self.render_asteroids(screen_space_transform, canvas);
+        self.render_starship(lander_entity, screen_space_transform, canvas, thrust_enabled);
+        self.render_missiles(screen_space_transform, canvas);
+        self.renderHud(canvas);
+    }
+
+    fn render_asteroids(&self, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         for ast in self.asteroids.iter() {
             let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
             let xformed = screen_space_transform.transform_many(&draw_points);
             draw::draw_lines(canvas, &xformed, Color::RGB(255, 255, 255), true).unwrap();
         }
+    }
 
-        let scale =
-            vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-        let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
-        // fix orientation of lander and rotate 90 deg
-        let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
-        let transform = entity_trans * scale * offset;
-        let items = [
-            &graphics::LanderTop,
-            &graphics::LanderMiddle,
-            &graphics::LanderBottom,
-            &graphics::LanderDrive,
-            &graphics::BBox,
-        ];
-        for lander_part in items.iter() {
-            let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
-        }
-
-        if thrust_enabled {
-            let geometry;
-            geometry = transform.transform_many(&graphics::FlameA.to_vec());
-            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
-        }
-
+    fn render_missiles(&mut self, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         for missile in self.missiles.iter() {
             let pos = screen_space_transform
                 .transform(&self.get_entity_immutable(missile.entity_id).position);
-            draw::draw_line(
+            let _ =draw::draw_line(
                 canvas,
                 &pos,
                 &(pos + Vec2d::new(1.0, 1.0)),
                 Color::RGB(255, 255, 255),
-            )
-            .unwrap();
+            );;
         }
     }
 
@@ -486,6 +461,28 @@ impl World {
         self.hud.render(canvas);
     }
 
+    fn render_starship(&self, lander_entity: &Entity, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, thrust_enabled: bool) {
+        let scale =
+            vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+        let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
+        // fix orientation of lander and rotate 90 deg
+        let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
+        let transform = entity_trans * scale * offset;
+        let items = [
+            &graphics::StarShip
+        ];
+        for lander_part in items.iter() {
+            let geometry = transform.transform_many(&lander_part.to_vec());
+            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+        }
+    
+        if thrust_enabled {
+            let geometry;            
+            geometry = transform.transform_many(&graphics::FlameA.to_vec());
+            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+        }
+    }
+
     fn render_starfield(
         &self,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
@@ -528,6 +525,8 @@ impl World {
         output
     }
 }
+
+
 
 mod tests {
     use crate::{simulation, vecmath::Vec2d};
