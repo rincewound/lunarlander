@@ -69,7 +69,7 @@ pub struct World {
     score: u32,
 
     screen_shake_frames: usize,
-    screen_shake_strength: f32
+    screen_shake_strength: f32,
     sound: sound::Sound,
 }
 
@@ -413,7 +413,7 @@ impl World {
         let entity = self.get_entity_immutable(id);
         let position = entity.position;
         let direction = Vec2d::from_angle(entity.angle);
-        // self.sound.shoot();
+        self.sound.shoot();
         self.create_missile(position, direction);
     }
 
