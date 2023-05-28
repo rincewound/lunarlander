@@ -291,6 +291,7 @@ impl World {
                                 * ((MAX_SCALE + 1 - ast.get_scale()) as f32 * 40.0),
                         );
                         entity.max_velocity = VELOCITY_ASTEROID;
+                        entity.border_behavior = BorderBehavior::Bounce;
                         entity_id
                     })
                     .collect();
