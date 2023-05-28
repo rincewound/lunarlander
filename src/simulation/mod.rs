@@ -251,14 +251,6 @@ impl World {
         self.do_collision_detection();
     }
 
-    fn get_lander_transform(&self, entity: &Entity) -> TransformationMatrix
-    {
-        let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
-        let entity_trans = entity.get_transform();
-        let transform = entity_trans * scale;
-        transform
-    }
-
     pub(crate) fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, textures: &HashMap<String, Texture>) {
         match self.game_state {
             State::Won => renderWonText(canvas),
@@ -294,6 +286,7 @@ impl World {
 
         let scale = vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
         let entity_trans = entity.get_transform();
+        // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
         let transform = entity_trans * scale * offset;
         let items = [
@@ -399,10 +392,6 @@ impl World {
                 position = entity.position;
                 direction = entity.direction;
             }
-
-            let transform = self.get_lander_transform(entity);
-            let bbox = transform.transform_many(&graphics::BBox.to_vec());
-
 
             let mut asteroids_to_delete = Vec::<usize>::new();
             let mut missiles_to_delete = Vec::<usize>::new();
