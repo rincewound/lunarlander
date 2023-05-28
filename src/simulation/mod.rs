@@ -5,7 +5,7 @@ use std::{f32::consts::PI, num};
 
 use rand::Rng;
 use sdl2::pixels::Color;
-use sdl2::rect::Point;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids::{self, MAX_SCALE};
@@ -71,6 +71,7 @@ pub struct World {
     screen_shake_frames: usize,
     screen_shake_strength: f32,
     sound: sound::Sound,
+    whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
 }
 
 impl Missile {
@@ -211,6 +212,7 @@ impl World {
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
             screen_shake_strength: 0.0,
+            whiteout_frames: 0,
         };
 
         w.init_asteroids(25);
@@ -397,6 +399,17 @@ impl World {
         self.render_asteroids(screen_space_transform, canvas);
         self.render_starship(lander_entity, screen_space_transform, canvas);
         self.render_missiles(screen_space_transform, canvas);
+
+        if self.whiteout_frames > 0 {
+            self.whiteout_frames -= 1;
+            let alpha = 255 * (1.0 - (10.0 / self.whiteout_frames as f32)) as u8;
+            canvas.set_draw_color(Color::RGBA(255, 255, 255, alpha));
+            canvas.set_blend_mode(BlendMode::Mul);
+            canvas.fill_rect(Rect::new(0, 0, 800, 600));
+            canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
+            canvas.set_blend_mode(BlendMode::None);
+        }
+
         self.renderHud(canvas);
     }
 
@@ -524,6 +537,9 @@ impl World {
                     self.sound.explode();
                     asteroids_to_delete.push(ast.clone());
                     missiles_to_delete.push(m.entity_id);
+                    if ast.get_scale() == MAX_SCALE {
+                        self.whiteout_frames = 5;
+                    }
                     self.score += 100;
                 }
             }
