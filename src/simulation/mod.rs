@@ -303,8 +303,7 @@ impl World {
         }
 
         let lander_entity = self.get_entity_immutable(self.lander.entity_id);
-        let thrust_enabled = self.lander.drive_enabled;
-
+        
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
@@ -312,7 +311,7 @@ impl World {
 
         self.render_starfield(canvas, textures);
         self.render_asteroids(screen_space_transform, canvas);
-        self.render_starship(lander_entity, screen_space_transform, canvas, thrust_enabled);
+        self.render_starship(lander_entity, screen_space_transform, canvas);
         self.render_missiles(screen_space_transform, canvas);
         self.renderHud(canvas);
     }
@@ -461,7 +460,7 @@ impl World {
         self.hud.render(canvas);
     }
 
-    fn render_starship(&self, lander_entity: &Entity, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, thrust_enabled: bool) {
+    fn render_starship(&self, lander_entity: &Entity, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let scale =
             vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
         let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
@@ -476,7 +475,7 @@ impl World {
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
     
-        if thrust_enabled {
+        if self.lander.drive_enabled {
             let geometry;            
             geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
