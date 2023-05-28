@@ -213,7 +213,7 @@ impl World {
             screen_shake_strength: 0.0,
         };
 
-        w.init_asteroids(10);
+        w.init_asteroids(25);
         w
     }
 
@@ -221,22 +221,16 @@ impl World {
         for idx in 1..=count {
             let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
             let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
-            self.create_asteroid(pos, dir);
-            // let id = self.create_entity();
-            // self.get_entity(id).set_position(Vec2d {
-            //     x: (50 + 100 * idx) as f32,
-            //     y: 50.0,
-            // });
-            // self.asteroids.push(Asteroid::new(id, idx));
+            self.create_asteroid(pos, dir, 4);
         }
     }
 
-    fn create_asteroid(&mut self, pos: Vec2d, dir: Vec2d) {
+    fn create_asteroid(&mut self, pos: Vec2d, dir: Vec2d, scale: usize) {
         let id = self.create_entity();
         let mut ent = self.get_entity(id);
         ent.set_position(pos);
         ent.set_direction(dir);
-        self.asteroids.push(Asteroid::new(id, MAX_SCALE));
+        self.asteroids.push(Asteroid::new(id, scale));
     }
 
     /// do not modify the asteroids array
@@ -335,6 +329,35 @@ impl World {
         entity.angle = next_angle;
 
         let disable_thrust = false;
+        let starship_pos = entity.position.clone();
+        let len = self.asteroids.len();
+                // if few asteroids are left, we spawn new ones outside of the player's visibility:
+       
+        if len < 15
+        {
+            let mut startX = 0.0;
+            let mut startY = 0.0;
+            if starship_pos.x > WorldSize.x / 2.0
+            {
+                startX = WorldSize.x;
+            }
+            else {
+                startX = 0.0;
+            }
+
+            if starship_pos.y > WorldSize.y / 2.0
+            {
+                startY = WorldSize.y;
+            }
+            else {
+                startY = 0.0;
+            }
+
+            let start_pos = Vec2d::new(startX, startY);
+            let start_dir = (starship_pos - start_pos) * 25.0;
+
+            self.create_asteroid(start_pos, start_dir, 4);
+        }
         self.thrust_toggle(disable_thrust);
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -343,10 +366,7 @@ impl World {
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
 
-        // if few asteroids are left, we spawn new ones outside of the player's visibility:
-        if self.asteroids.len() < 10 {
-            //self.
-        }
+
     }
 
     pub(crate) fn render(
