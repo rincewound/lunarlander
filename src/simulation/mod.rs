@@ -111,6 +111,8 @@ impl Entity {
     }
 }
 
+const WorldSize: Vec2d = Vec2d{x : 1.0 * 800.0, y :1.0 * 600.0};
+
 impl Physics {
     pub fn default() -> Self {
         Physics {
@@ -137,10 +139,22 @@ impl Physics {
 
                 if e.update {
                     e.direction = e.direction + gravity_fragment;
-                    // update direction by appliying acceleration:
+                    // update direction by applying acceleration:
                     let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
                     e.direction = e.direction + accel_fragment;
-                    e.position = e.position + e.direction.clone() * (sim_time_in_seconds);
+
+                    let mut new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
+
+                    if new_pos.x < 0.0 || 
+                       new_pos.y < 0.0 || 
+                       new_pos.x > WorldSize.x || 
+                       new_pos.y > WorldSize.y
+                    {
+                        e.direction = e.direction * -0.2;
+                        new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
+                    }
+
+                    e.position = new_pos;
                 }
 
                 // TBD: Check if something like a terminal velocity would be a good idea
@@ -279,11 +293,10 @@ impl World {
         }
         let lander_entity = self.get_entity_immutable(id);
 
-
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform * 
                                 TransformationMatrix::translation_v(lander_entity.position * -1.0) *
-                                TransformationMatrix::translation(400.0, 300.0);
+                                TransformationMatrix::translation(400.0, 300.0);        // center to screen
 
         for ast in self.asteroids.iter() {
             let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
