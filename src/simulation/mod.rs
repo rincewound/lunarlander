@@ -450,6 +450,7 @@ impl World {
                 // flying in other directions.
                 // also: Schedule this asteroid for deletion
                 if projectile_collision {
+                    self.sound.explode();
                     asteroids_to_delete.push(ast.entity_id);
                     missiles_to_delete.push(m.entity_id);
                     self.score += 100;
