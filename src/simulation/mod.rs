@@ -16,6 +16,7 @@ use crate::{
     collision, draw, hud,
     vecmath::{self, Vec2d},
 };
+use crate::sound;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -66,6 +67,7 @@ pub struct World {
     hud: hud::Hud,
     game_state: State,
     score: u32,
+    sound: sound::Sound,
 }
 
 impl Missile {
@@ -195,7 +197,8 @@ impl World {
             game_state: State::Running,
             missiles: vec![],
             starfield: Self::make_starfield(),
-            score: 0
+            score: 0,
+            sound: sound::Sound::new(),
         };
 
         w.init_asteroids();
@@ -390,6 +393,7 @@ impl World {
         let entity = self.get_entity_immutable(id);
         let position = entity.position;
         let direction = Vec2d::from_angle(entity.angle);
+        // self.sound.shoot();
         self.create_missile(position, direction);
     }
 
