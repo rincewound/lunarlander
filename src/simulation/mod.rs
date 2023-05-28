@@ -65,6 +65,7 @@ pub struct World {
     asteroids: Vec<Asteroid>,
     hud: hud::Hud,
     game_state: State,
+    score: u32,
 }
 
 impl Missile {
@@ -120,8 +121,8 @@ impl Entity {
 }
 
 const WorldSize: Vec2d = Vec2d {
-    x: 1.0 * 800.0,
-    y: 1.0 * 600.0,
+    x: 4.0 * 800.0,
+    y: 4.0 * 600.0,
 };
 
 impl Physics {
@@ -194,6 +195,7 @@ impl World {
             game_state: State::Running,
             missiles: vec![],
             starfield: Self::make_starfield(),
+            score: 0
         };
 
         w.init_asteroids();
@@ -452,6 +454,7 @@ impl World {
                 if projectile_collision {
                     asteroids_to_delete.push(ast.entity_id);
                     missiles_to_delete.push(m.entity_id);
+                    self.score += 100;
                 }
             }
         }
@@ -479,7 +482,7 @@ impl World {
         let entity = self.get_entity(id);
         let position = entity.position;
         let direction = entity.direction;
-        self.hud.update(position, direction, 0);
+        self.hud.update(position, direction, self.score);
         self.hud.render(canvas);
     }
 
@@ -502,8 +505,8 @@ impl World {
                 sdl2::rect::Rect::new(
                     starpos.x as i32,
                     starpos.y as i32,
-                    16 / (1 + star.layer as u32),
-                    16 / (1 + star.layer as u32),
+                    12 / (1 + star.layer as u32),
+                    12 / (1 + star.layer as u32),
                 ),
             );
         }

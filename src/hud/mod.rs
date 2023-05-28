@@ -8,7 +8,7 @@ use sdl2::video::Window;
 pub struct Hud {
     position: Vec2d,
     direction: Vec2d,
-    deaths: u32,
+    score: u32,
 }
 
 impl Hud {
@@ -16,22 +16,22 @@ impl Hud {
         Self {
             position: Vec2d::new(0.0, 0.0),
             direction: Vec2d::new(0.0, 0.0),
-            deaths: 0,
+            score: 0,
         }
     }
 
-    pub fn from(position: Vec2d, direction: Vec2d, deaths: u32) -> Self {
+    pub fn from(position: Vec2d, direction: Vec2d, score: u32) -> Self {
         Self {
             position,
             direction,
-            deaths,
+            score,
         }
     }
 
-    pub fn update(&mut self, position: Vec2d, direction: Vec2d, deaths: u32) {
+    pub fn update(&mut self, position: Vec2d, direction: Vec2d, score: u32) {
         self.position = position;
         self.direction = direction;
-        self.deaths = deaths;
+        self.score = score;
     }
 
     pub fn updatePosition(&mut self, position: Vec2d) {
@@ -42,8 +42,8 @@ impl Hud {
         self.direction = direction;
     }
 
-    pub fn updateDeaths(&mut self, deaths: u32) {
-        self.deaths = deaths;
+    pub fn updateScore(&mut self, score: u32) {
+        self.score = score;
     }
 
     pub fn render(&self, canvas: &mut Canvas<Window>) {
@@ -52,7 +52,7 @@ impl Hud {
             "Direction: x = {}, y = {}",
             self.direction.x, self.direction.y
         );
-        let hud_deaths = format!("Deaths: {}", self.deaths);
+        let hud_score = format!("Score: {}", self.score);
 
         draw::draw_text(
             canvas,
@@ -72,7 +72,7 @@ impl Hud {
         .unwrap();
         draw::draw_text(
             canvas,
-            &hud_deaths,
+            &hud_score,
             10,
             Point::new(0, 20),
             Color::RGB(0, 255, 0),
