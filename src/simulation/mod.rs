@@ -180,13 +180,11 @@ impl World {
         return self.entities.len() - 1;
     }
 
-    pub fn create_missile(&mut self, pos: Vec2d) {
+    pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
         let id = self.create_entity();
         let entity = self.get_entity(id);
         entity.set_position(pos);
-        let direction = Vec2d::from_angle(entity.angle);
-        let ent = self.get_entity(id);
-        ent.direction = direction * -40.0;
+        entity.direction = direction * -40.0;
         self.missiles.push(Missile::new(id));
     }
 
@@ -346,8 +344,10 @@ impl World {
     pub(crate) fn shoot(&mut self) {
         if let Some(lander) = self.lander.as_ref() {
             let id = lander.entity_id;
-            let position = self.get_entity(id).position;
-            self.create_missile(position);
+            let entity = self.get_entity_immutable(id);
+            let position = entity.position;
+            let direction = Vec2d::from_angle(entity.angle);
+            self.create_missile(position, direction);
         }
     }
 
