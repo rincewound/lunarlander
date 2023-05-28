@@ -63,6 +63,10 @@ impl Asteroid {
         let hull_points = transform.transform_many(&self.border_points);
         return hull_points;
     }
+
+    pub fn get_scale(&self) -> usize {
+        self.scale
+    }
 }
 
 #[cfg(test)]

@@ -10,13 +10,13 @@ use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids;
 use crate::graphics::{self, renderGameOver, renderWonText};
+use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
     asteroids::Asteroid,
     collision, draw, hud,
     vecmath::{self, Vec2d},
 };
-use crate::sound;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -100,6 +100,10 @@ impl Entity {
 
     pub fn set_position(&mut self, position: Vec2d) {
         self.position = position;
+    }
+
+    fn set_direction(&mut self, direction: Vec2d) {
+        self.direction = direction;
     }
 
     pub fn set_update(&mut self, update: bool) {
@@ -221,9 +225,36 @@ impl World {
         }
     }
 
-    fn split_asteroid(&mut self) {
+    /// do not modify the asteroids array
+    fn split_asteroids(&mut self, asteroids: &Vec<Asteroid>) -> Vec<Asteroid> {
         let mut rng = rand::thread_rng();
-        for _ in 0..rng.gen_range(2..3) {}
+        asteroids
+            .iter()
+            .map(|ast| {
+                let new_ids: Vec<_> = (0..rng.gen_range(2..3))
+                    .map(|_| {
+                        let old_position;
+                        let old_direction;
+                        {
+                            let old_entity = self.get_entity_immutable(ast.entity_id);
+                            old_position = old_entity.position;
+                            old_direction = old_entity.direction;
+                            //old_direction.rotate()
+                        }
+                        let entity_id = self.create_entity();
+                        let entity = self.get_entity(entity_id);
+                        entity.set_position(old_position);
+                        entity.set_direction(
+                            Vec2d::from_angle(rng.gen_range(0.0..(2.0 * PI)))
+                                * ((4.0 - ast.get_scale() as f32) * 40.0),
+                        );
+                        entity_id
+                    })
+                    .collect();
+                ast.split(new_ids)
+            })
+            .flatten()
+            .collect()
     }
 
     pub fn create_entity(&mut self) -> usize {
@@ -311,13 +342,14 @@ impl World {
         }
 
         let mut ShakeTransForm = TransformationMatrix::unit();
-        if self.screen_shake_frames > 0 
-        {
+        if self.screen_shake_frames > 0 {
             self.screen_shake_frames -= 1;
             let mut rnd = rand::thread_rng();
-            ShakeTransForm = ShakeTransForm * TransformationMatrix::translation(
-                rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
-                rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0)
+            ShakeTransForm = ShakeTransForm
+                * TransformationMatrix::translation(
+                    rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
+                    rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
+                )
         }
 
         let lander_entity = self.get_entity_immutable(self.lander.entity_id);
@@ -328,8 +360,6 @@ impl World {
             * ShakeTransForm
             * TransformationMatrix::translation(400.0, 300.0); // center to screen
 
-
-
         self.render_starfield(canvas, textures);
         self.render_asteroids(screen_space_transform, canvas);
         self.render_starship(lander_entity, screen_space_transform, canvas);
@@ -337,7 +367,11 @@ impl World {
         self.renderHud(canvas);
     }
 
-    fn render_asteroids(&self, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render_asteroids(
+        &self,
+        screen_space_transform: TransformationMatrix,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    ) {
         for ast in self.asteroids.iter() {
             let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
             let xformed = screen_space_transform.transform_many(&draw_points);
@@ -345,16 +379,20 @@ impl World {
         }
     }
 
-    fn render_missiles(&mut self, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render_missiles(
+        &mut self,
+        screen_space_transform: TransformationMatrix,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    ) {
         for missile in self.missiles.iter() {
             let pos = screen_space_transform
                 .transform(&self.get_entity_immutable(missile.entity_id).position);
-            let _ =draw::draw_line(
+            let _ = draw::draw_line(
                 canvas,
                 &pos,
                 &(pos + Vec2d::new(1.0, 1.0)),
                 Color::RGB(255, 255, 255),
-            );;
+            );
         }
     }
 
@@ -428,7 +466,7 @@ impl World {
         let lander_entity = self.get_entity_immutable(id);
         let lander_position = lander_entity.position;
 
-        let mut asteroids_to_delete = Vec::<usize>::new();
+        let mut asteroids_to_delete = Vec::<Asteroid>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
 
         for ast in self.asteroids.iter() {
@@ -451,7 +489,7 @@ impl World {
                 // also: Schedule this asteroid for deletion
                 if projectile_collision {
                     self.sound.explode();
-                    asteroids_to_delete.push(ast.entity_id);
+                    asteroids_to_delete.push(ast.clone());
                     missiles_to_delete.push(m.entity_id);
                     self.score += 100;
                 }
@@ -463,10 +501,15 @@ impl World {
             .asteroids
             .clone()
             .into_iter()
-            .filter(|a| !asteroids_to_delete.contains(&a.entity_id));
+            .filter(|a| !asteroids_to_delete.contains(&a));
+        let mut new_split_asteroids = self.split_asteroids(&asteroids_to_delete);
         self.asteroids = new_asteroids.collect();
-        //self.asteroids.append(other);
-        self.garbage_collect_entities(&asteroids_to_delete);
+        self.asteroids.append(&mut new_split_asteroids);
+        let asteroid_ids_to_delete = asteroids_to_delete
+            .iter()
+            .map(|ast| ast.entity_id)
+            .collect();
+        self.garbage_collect_entities(&asteroid_ids_to_delete);
         let new_missiles = self
             .missiles
             .clone()
@@ -485,23 +528,26 @@ impl World {
         self.hud.render(canvas);
     }
 
-    fn render_starship(&self, lander_entity: &Entity, screen_space_transform: TransformationMatrix, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render_starship(
+        &self,
+        lander_entity: &Entity,
+        screen_space_transform: TransformationMatrix,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    ) {
         let scale =
             vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
         let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
         // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
         let transform = entity_trans * scale * offset;
-        let items = [
-            &graphics::StarShip
-        ];
+        let items = [&graphics::StarShip];
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
-    
+
         if self.lander.drive_enabled {
-            let geometry;            
+            let geometry;
             geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
@@ -549,8 +595,6 @@ impl World {
         output
     }
 }
-
-
 
 mod tests {
     use crate::{simulation, vecmath::Vec2d};

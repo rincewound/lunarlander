@@ -15,8 +15,8 @@ mod graphics;
 mod hud;
 mod map;
 mod simulation;
-mod vecmath;
 mod sound;
+mod vecmath;
 
 pub const window_width: u32 = 800;
 pub const window_height: u32 = 600;

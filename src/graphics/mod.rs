@@ -2,11 +2,11 @@ use sdl2::{pixels::Color, rect::Point};
 
 use crate::{draw, vecmath::Vec2d, window_center};
 
-pub const StarShip: [Vec2d;4] = [
-    Vec2d::new (0.0, 0.0),
-    Vec2d::new (1.0, -1.0),
-    Vec2d::new (0.0, 2.0),
-    Vec2d::new (-1.0, -1.0),
+pub const StarShip: [Vec2d; 4] = [
+    Vec2d::new(0.0, 0.0),
+    Vec2d::new(1.0, -1.0),
+    Vec2d::new(0.0, 2.0),
+    Vec2d::new(-1.0, -1.0),
 ];
 
 pub const LanderScale: Vec2d = Vec2d::new(5.0, 5.0);
