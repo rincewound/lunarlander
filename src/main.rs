@@ -103,6 +103,13 @@ pub fn main() -> Result<(), String> {
                 } => {
                     sim.rotation_right_toggle(true);
                 }
+
+                Event::KeyDown {
+                    keycode: Some(Keycode::S),
+                    ..
+                } => {
+                    sim.toggle_background_music();
+                }
                 _ => {}
             }
         }

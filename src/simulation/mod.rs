@@ -337,6 +337,7 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
+        self.sound.play_background_music();
     }
 
     fn spawn_asteroids(&mut self, starship_pos: Vec2d) {
@@ -463,6 +464,7 @@ impl World {
         let entity = self.get_entity(id);
         if enable {
             entity.set_acceleration(thrust_dir * -5.0);
+            // self.sound.accelerate();
             self.screen_shake_frames = 10;
             self.screen_shake_strength = 4.0;
         } else {
@@ -521,6 +523,7 @@ impl World {
             let asteroid_hull = &ast.get_transformed_hull(asteroid_entity);
             let collision = collision::hit_test(lander_position, asteroid_hull); // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
             if collision {
+                self.sound.die();
                 self.game_state = State::Lost;
             }
 
@@ -642,6 +645,10 @@ impl World {
             output.push(s);
         }
         output
+    }
+
+    pub fn toggle_background_music(&mut self) {
+        self.sound.toggle_background_music();
     }
 }
 
