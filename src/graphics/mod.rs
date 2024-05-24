@@ -1,6 +1,6 @@
 use sdl2::{pixels::Color, rect::Point};
 
-use crate::{draw, vecmath::Vec2d, window_center};
+use crate::{draw, vecmath::Vec2d};
 
 pub const StarShip: [Vec2d; 4] = [
     Vec2d::new(0.0, 0.0),
@@ -23,7 +23,10 @@ pub const FlameB: [Vec2d; 3] = [
     Vec2d::new(0.0, -1.5),
 ];
 
-pub fn renderGameOver(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+pub fn render_game_over(
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    window_center: Vec2d,
+) {
     draw::draw_text_centered(
         canvas,
         "GAME OVER",
@@ -34,7 +37,10 @@ pub fn renderGameOver(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
     .unwrap();
 }
 
-pub fn renderWonText(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+pub fn render_won_text(
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    window_center: Vec2d,
+) {
     draw::draw_text_centered(
         canvas,
         "WON",

@@ -1,12 +1,10 @@
-use sdl2::event::Event;
+use sdl2::event::{Event, WindowEvent};
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::render::{Canvas, Texture};
-use sdl2::video::Window;
+use sdl2::render::Texture;
 use std::collections::HashMap;
 use std::time::Duration;
-use vecmath::Vec2d;
 
 mod asteroids;
 mod collision;
@@ -20,7 +18,6 @@ mod vecmath;
 
 pub const window_width: u32 = 800;
 pub const window_height: u32 = 600;
-pub const window_center: Vec2d = Vec2d::new(window_width as f32 / 2.0, window_height as f32 / 2.0);
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
@@ -29,6 +26,7 @@ pub fn main() -> Result<(), String> {
     let window = video_subsystem
         .window("rust-sdl2 demo: Video", window_width, window_height)
         .position_centered()
+        .resizable()
         .opengl()
         .build()
         .map_err(|e| e.to_string())?;
@@ -58,58 +56,45 @@ pub fn main() -> Result<(), String> {
                     ..
                 } => break 'running,
                 Event::KeyDown {
-                    keycode: Some(Keycode::Space),
-                    ..
+                    keycode, repeat, ..
                 } => {
-                    sim.shoot();
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::Up),
-                    ..
-                } => {
-                    sim.thrust_toggle(true);
+                    if !repeat {
+                        println!("event: {:?}", { event });
+                        match keycode {
+                            Some(keycode) => match keycode {
+                                Keycode::Up => sim.thrust_toggle(true),
+                                Keycode::Left => sim.rotation_left_toggle(true),
+                                Keycode::Right => sim.rotation_right_toggle(true),
+                                Keycode::Space => sim.shoot(),
+                                Keycode::S => sim.toggle_background_music(),
+                                _ => continue,
+                            },
+                            None => continue,
+                        }
+                    }
                 }
                 Event::KeyUp {
-                    keycode: Some(Keycode::Up),
-                    ..
+                    keycode, repeat, ..
                 } => {
-                    sim.thrust_toggle(false);
+                    if !repeat {
+                        println!("event: {:?}", { event });
+                        match keycode {
+                            Some(keycode) => match keycode {
+                                Keycode::Up => sim.thrust_toggle(false),
+                                Keycode::Left => sim.rotation_left_toggle(false),
+                                Keycode::Right => sim.rotation_right_toggle(false),
+                                _ => continue,
+                            },
+                            None => continue,
+                        }
+                    }
                 }
-
-                Event::KeyUp {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => {
-                    sim.rotation_left_toggle(false);
-                }
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => {
-                    sim.rotation_left_toggle(true);
-                }
-
-                Event::KeyUp {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => {
-                    sim.rotation_right_toggle(false);
-                }
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => {
-                    sim.rotation_right_toggle(true);
-                }
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::S),
-                    ..
-                } => {
-                    sim.toggle_background_music();
-                }
+                Event::Window { win_event, .. } => match win_event {
+                    WindowEvent::SizeChanged(width, height) => {
+                        sim.update_window_size(width as f32, height as f32)
+                    }
+                    _ => continue,
+                },
                 _ => {}
             }
         }

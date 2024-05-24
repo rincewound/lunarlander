@@ -10,7 +10,7 @@ use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids::{self, MAX_SCALE};
 use crate::draw::draw_lines;
-use crate::graphics::{self, renderGameOver, renderWonText};
+use crate::graphics::{self, render_game_over, render_won_text};
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 };
 
 const VELOCITY_SPACESHIP: f32 = 50.0;
-const VELOCITY_ASTEROID: f32 = 40.0;
+const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
 
 struct Physics {
@@ -83,6 +83,7 @@ pub struct World {
 
     screen_shake_frames: usize,
     screen_shake_strength: f32,
+    screen_size: Vec2d,
     sound: sound::Sound,
     whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
 }
@@ -142,6 +143,10 @@ impl Entity {
 
     pub fn get_id(&self) -> usize {
         return self.id;
+    }
+
+    fn velocity(&self) -> f32 {
+        return self.direction.len();
     }
 }
 
@@ -245,6 +250,10 @@ impl World {
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
             screen_shake_strength: 0.0,
+            screen_size: Vec2d {
+                x: window_width as f32,
+                y: window_height as f32,
+            },
             whiteout_frames: 0,
         };
 
@@ -276,7 +285,7 @@ impl World {
         asteroids
             .iter()
             .map(|ast| {
-                let new_ids: Vec<_> = (0..rng.gen_range(2..3))
+                let new_ids: Vec<_> = (0..rng.gen_range(2..=3))
                     .map(|_| {
                         let old_position;
                         {
@@ -314,7 +323,7 @@ impl World {
         let id = self.create_entity();
         let entity = self.get_entity(id);
         entity.position = pos;
-        entity.direction = direction * -40.0;
+        entity.direction = direction;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
         self.missiles.push(Missile::new(id));
@@ -360,16 +369,15 @@ impl World {
         self.p
             .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
-        let entity = self.get_entity_immutable(self.lander.entity_id);
-        let next_angle =
-            entity.angle + (180.0 * self.lander.rotation * (time_in_ms / 1000.0)).to_radians();
+        let rotation = self.lander.rotation;
         let mut entity = self.get_entity(self.lander.entity_id);
-        entity.angle = next_angle;
-
-        let disable_thrust = false;
+        entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
         let starship_pos = entity.position.clone();
+        drop(entity);
+        // if the drive is still enabled and we changed the angle we must update the thrust
+        self.thrust_toggle(self.lander.drive_enabled);
+
         self.spawn_asteroids(starship_pos);
-        self.thrust_toggle(disable_thrust);
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
 
@@ -384,21 +392,18 @@ impl World {
         // if few asteroids are left, we spawn new ones outside of the player's visibility:
 
         if len < 15 {
-            let mut startX = 0.0;
-            let mut startY = 0.0;
-            if starship_pos.x > WorldSize.x / 2.0 {
-                startX = WorldSize.x;
+            let start_x = if starship_pos.x > WorldSize.x / 2.0 {
+                WorldSize.x
             } else {
-                startX = 0.0;
-            }
-
-            if starship_pos.y > WorldSize.y / 2.0 {
-                startY = WorldSize.y;
+                0.0
+            };
+            let start_y = if starship_pos.y > WorldSize.y / 2.0 {
+                WorldSize.y
             } else {
-                startY = 0.0;
-            }
+                0.0
+            };
 
-            let start_pos = Vec2d::new(startX, startY);
+            let start_pos = Vec2d::new(start_x, start_y);
             let start_dir = (starship_pos - start_pos) * 25.0;
 
             self.create_asteroid(start_pos, start_dir, 4);
@@ -411,8 +416,8 @@ impl World {
         textures: &HashMap<String, Texture>,
     ) {
         match self.game_state {
-            State::Won => renderWonText(canvas),
-            State::Lost => renderGameOver(canvas),
+            State::Won => render_won_text(canvas, self.screen_size / 2.0),
+            State::Lost => render_game_over(canvas, self.screen_size / 2.0),
             State::Running => (),
         }
 
@@ -433,7 +438,7 @@ impl World {
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
             * ShakeTransForm
-            * TransformationMatrix::translation(400.0, 300.0); // center to screen
+            * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
         self.render_starfield(canvas, textures);
         self.render_asteroids(screen_space_transform, canvas);
@@ -482,26 +487,19 @@ impl World {
         }
     }
 
+    pub(crate) fn update_window_size(&mut self, width: f32, height: f32) {
+        self.screen_size.x = width;
+        self.screen_size.y = height;
+    }
+
     pub(crate) fn thrust_toggle(&mut self, enable: bool) {
         if self.game_state != State::Running {
             return;
         }
-        let id;
-        let thrust_dir;
-        {
-            // This scope makes sure, that we only keep the lander
-            // borrowed as long as necessary
-            let angle;
-            {
-                let entity = self.get_entity_immutable(self.lander.entity_id);
-                angle = entity.angle;
-            }
-            thrust_dir = Vec2d::from_angle(angle);
-            id = self.lander.entity_id;
-            self.lander.drive_enabled = enable;
-        }
-        let entity = self.get_entity(id);
+        self.lander.drive_enabled = enable;
+        let entity = self.get_entity(self.lander.entity_id);
         if enable {
+            let thrust_dir = Vec2d::from_angle(entity.angle);
             entity.set_acceleration(thrust_dir * -5.0);
             // self.sound.accelerate();
             self.screen_shake_frames = 10;
@@ -515,7 +513,7 @@ impl World {
         if self.game_state != State::Running {
             return;
         }
-        if enable == true {
+        if enable {
             self.lander.rotation = -1.0;
         } else {
             self.lander.rotation = 0.0;
@@ -526,7 +524,7 @@ impl World {
         if self.game_state != State::Running {
             return;
         }
-        if enable == true {
+        if enable {
             self.lander.rotation = 1.0;
         } else {
             self.lander.rotation = 0.0;
@@ -537,7 +535,8 @@ impl World {
         let id = self.lander.entity_id;
         let entity = self.get_entity_immutable(id);
         let position = entity.position;
-        let direction = Vec2d::from_angle(entity.angle);
+        let init_velocity = 40.0 * (entity.velocity() + 1.0);
+        let direction = Vec2d::from_angle(entity.angle) * -1.0 * init_velocity;
         self.sound.shoot();
         self.create_missile(position, direction);
     }
