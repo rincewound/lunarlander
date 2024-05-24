@@ -9,6 +9,7 @@ pub struct Hud {
     position: Vec2d,
     direction: Vec2d,
     score: u32,
+    asteroids: u32,
 }
 
 impl Hud {
@@ -17,21 +18,24 @@ impl Hud {
             position: Vec2d::new(0.0, 0.0),
             direction: Vec2d::new(0.0, 0.0),
             score: 0,
+            asteroids: 0,
         }
     }
 
-    pub fn from(position: Vec2d, direction: Vec2d, score: u32) -> Self {
+    pub fn from(position: Vec2d, direction: Vec2d, score: u32, asteroids: u32) -> Self {
         Self {
             position,
             direction,
             score,
+            asteroids,
         }
     }
 
-    pub fn update(&mut self, position: Vec2d, direction: Vec2d, score: u32) {
+    pub fn update(&mut self, position: Vec2d, direction: Vec2d, score: u32, asteroids: u32) {
         self.position = position;
         self.direction = direction;
         self.score = score;
+        self.asteroids = asteroids;
     }
 
     pub fn updatePosition(&mut self, position: Vec2d) {
@@ -53,6 +57,7 @@ impl Hud {
             self.direction.x, self.direction.y
         );
         let hud_score = format!("Score: {}", self.score);
+        let hud_asteroids = format!("Asteroids: {}", self.asteroids);
 
         draw::draw_text(
             canvas,
@@ -75,6 +80,14 @@ impl Hud {
             &hud_score,
             10,
             Point::new(0, 20),
+            Color::RGB(0, 255, 0),
+        )
+        .unwrap();
+        draw::draw_text(
+            canvas,
+            &hud_asteroids,
+            10,
+            Point::new(0, 30),
             Color::RGB(0, 255, 0),
         )
         .unwrap();

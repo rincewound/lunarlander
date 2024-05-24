@@ -617,7 +617,8 @@ impl World {
         let entity = self.get_entity(id);
         let position = entity.position;
         let direction = entity.direction;
-        self.hud.update(position, direction, self.score);
+        self.hud
+            .update(position, direction, self.score, self.asteroids.len() as u32);
         self.hud.render(canvas);
     }
 
