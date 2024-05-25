@@ -13,7 +13,6 @@ mod collision;
 mod draw;
 mod graphics;
 mod hud;
-mod map;
 mod simulation;
 mod sound;
 mod vecmath;

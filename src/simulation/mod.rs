@@ -370,7 +370,8 @@ impl World {
             * ShakeTransForm
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
-        self.render_starfield(canvas, textures);
+        //self.render_starfield(canvas, textures);
+        //self.render_asteroids(screen_space_transform, canvas);
         self.render_starship(lander_entity, screen_space_transform, canvas);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -535,7 +536,7 @@ impl World {
         let items = [&graphics::StarShip];
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+            draw::neon_draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
 
         if self.lander.drive_enabled {

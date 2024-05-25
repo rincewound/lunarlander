@@ -8,6 +8,19 @@ use std::path::Path;
 
 use crate::vecmath::Vec2d;
 
+pub fn neon_draw_line(
+    canvas: &mut Canvas<Window>,
+    from: &Vec2d,
+    to: &Vec2d,
+    color: Color,
+) -> Result<(), String> {
+    canvas.set_draw_color(color);
+    return canvas.draw_line(
+        Point::new(from.x as i32, from.y as i32),
+        Point::new(to.x as i32, to.y as i32),
+    );
+}
+
 pub fn draw_line(
     canvas: &mut Canvas<Window>,
     from: &Vec2d,
@@ -37,6 +50,29 @@ pub fn draw_lines(
 
     if close {
         if let Err(error) = draw_line(canvas, &points[points.len() - 1], &points[0], color) {
+            return Err(error);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn neon_draw_lines(
+    canvas: &mut Canvas<Window>,
+    points: &Vec<Vec2d>,
+    color: Color,
+    close: bool,
+) -> Result<(), String> {
+    canvas.set_draw_color(color);
+
+    for idx in 1..points.len() {
+        if let Err(error) = neon_draw_line(canvas, &points[idx - 1], &points[idx], color) {
+            return Err(error);
+        }
+    }
+
+    if close {
+        if let Err(error) = neon_draw_line(canvas, &points[points.len() - 1], &points[0], color) {
             return Err(error);
         }
     }
