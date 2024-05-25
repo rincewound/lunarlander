@@ -11,8 +11,8 @@ use sdl2::render::{BlendMode, Texture};
 use crate::asteroids::{self, MAX_SCALE};
 use crate::draw::draw_lines;
 use crate::graphics::{
-    self, render_game_over, render_won_text, LanderColor, LanderScale, RectEnemy, RectEnemyColor,
-    RombusEnemy, RombusEnemyColor,
+    self, render_game_over, render_won_text, ENTITY_SCALE, RECT_ENEMY, RECT_ENEMY_COLOR,
+    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -410,7 +410,7 @@ impl World {
             let alpha = 255 * (1.0 - (10.0 / self.whiteout_frames as f32)) as u8;
             canvas.set_draw_color(Color::RGBA(255, 255, 255, alpha));
             canvas.set_blend_mode(BlendMode::Mul);
-            canvas.fill_rect(Rect::new(0, 0, 800, 600));
+            let _ = canvas.fill_rect(Rect::new(0, 0, 800, 600));
             canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
             canvas.set_blend_mode(BlendMode::None);
         }
@@ -500,14 +500,13 @@ impl World {
     }
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
-        println!("Enemy tick!");
         // check if we have enough enemies:
         if self.enemies.len() < 10 {
             let ent = self.create_entity();
             let enemy = Enemy {
                 ty: EnemyType::Rombus,
                 entity_id: ent,
-                hull: &RombusEnemy,
+                hull: &ROMBUS_ENEMY,
             };
             let the_entity = self.get_entity(ent);
             the_entity.position = Vec2d {
@@ -553,7 +552,7 @@ impl World {
             let enemy_ent = self.get_entity_immutable(enemy.entity_id);
             let enemy_transform = enemy_ent.get_transform();
             let scale_transform =
-                vecmath::TransformationMatrix::scale(LanderScale.x, LanderScale.y);
+                vecmath::TransformationMatrix::scale(ENTITY_SCALE.x, ENTITY_SCALE.y);
             let hull_transform = enemy_transform * scale_transform;
             let enemy_hull = hull_transform.transform_many(&enemy.hull.to_vec());
             let collision = collision::hit_test(lander_position, &enemy_hull); // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
@@ -620,17 +619,19 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         textures: &HashMap<String, Texture>,
     ) {
-        let scale =
-            vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+        let scale = vecmath::TransformationMatrix::scale(
+            graphics::ENTITY_SCALE.x,
+            graphics::ENTITY_SCALE.y,
+        );
         let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
         // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
         let transform = entity_trans * scale * offset;
-        let items = [&graphics::StarShip];
+        let items = [&graphics::STARSHIP];
         let texture = textures.get("neon").unwrap();
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::neon_draw_lines(canvas, &geometry, LanderColor, true, texture).unwrap();
+            draw::neon_draw_lines(canvas, &geometry, STARSHIP_COLOR, true, texture).unwrap();
         }
 
         if self.lander.drive_enabled {
@@ -653,21 +654,20 @@ impl World {
             let col;
             match enemy.ty {
                 EnemyType::Rect => {
-                    items = [&RectEnemy];
-                    col = RectEnemyColor;
+                    items = [&RECT_ENEMY];
+                    col = RECT_ENEMY_COLOR;
                 }
                 EnemyType::Rombus => {
-                    items = [&RombusEnemy];
-                    col = RombusEnemyColor;
+                    items = [&ROMBUS_ENEMY];
+                    col = ROMBUS_ENEMY_COLOR;
                 }
             }
             let scale = vecmath::TransformationMatrix::scale(
-                graphics::LanderScale.x,
-                graphics::LanderScale.y,
+                graphics::ENTITY_SCALE.x,
+                graphics::ENTITY_SCALE.y,
             );
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
             let texture = textures.get("neon").unwrap();
-            println!("Render enemy");
             for parts in items.iter() {
                 let geometry = entity_trans.transform_many(&parts.to_vec());
                 draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
@@ -729,10 +729,10 @@ impl World {
         bot_left = screen_space_transform.transform(&bot_left);
         bot_right = screen_space_transform.transform(&bot_right);
 
-        draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
-        draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
-        draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
-        draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
     }
 
     fn make_starfield() -> Vec<Star> {
