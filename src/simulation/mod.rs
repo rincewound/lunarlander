@@ -371,8 +371,8 @@ impl World {
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
         let mut lander_entity = self.get_entity(self.lander.entity_id);
-        if lander_entity.acceleration.len() < 0.01 && lander_entity.direction.len() > 0.0 {
-            lander_entity.direction = if lander_entity.direction.len() > 0.01 {
+        if lander_entity.acceleration.len() < 0.01 {
+            lander_entity.direction = if lander_entity.velocity() > 0.01 {
                 let sim_time_in_seconds = time_in_ms / 1000.0;
                 let break_fragment = lander_entity.direction.normalized()
                     * 2.0
