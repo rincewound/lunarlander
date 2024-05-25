@@ -581,6 +581,8 @@ impl World {
                     missiles_to_delete.push(m.entity_id);
                     if ast.get_scale() == MAX_SCALE {
                         self.whiteout_frames = 5;
+                        self.screen_shake_frames = 25;
+                        self.screen_shake_strength = 12.0;
                     }
                     self.score += 100;
                 }
