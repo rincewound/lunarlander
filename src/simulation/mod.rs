@@ -70,6 +70,7 @@ pub struct Entity {
 pub struct Lander {
     entity_id: usize,
     drive_enabled: bool,
+    shoot_direction: Vec2d,
 }
 
 #[derive(Clone, PartialEq)]
@@ -277,6 +278,7 @@ impl World {
         let lander = Lander {
             entity_id: 0,
             drive_enabled: false,
+            shoot_direction: Vec2d::default(),
         };
 
         let mut lander_entity = Entity::default(0);
@@ -495,16 +497,25 @@ impl World {
         if self.game_state != State::Running {
             return;
         }
-        let id = self.lander.entity_id;
-        let entity = self.get_entity_immutable(id);
-        let position = entity.position;
-        let init_velocity = 40.0 * (entity.velocity() + 1.0);
-        let direction = Vec2d::from_angle(entity.angle) * -1.0 * init_velocity;
-        self.sound.shoot();
-        self.create_missile(position, direction);
+        let shoot_dir = dir.get_vec2d();
+        self.lander.shoot_direction = if enable {
+            self.lander.shoot_direction + shoot_dir
+        } else {
+            self.lander.shoot_direction - shoot_dir
+        };
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
+        if self.lander.shoot_direction.len() > 0.0 {
+            let id = self.lander.entity_id;
+            let entity = self.get_entity_immutable(id);
+            let position = entity.position;
+            let init_velocity = 40.0 * (entity.velocity() + 1.0);
+            let direction = self.lander.shoot_direction * init_velocity;
+            self.sound.shoot();
+            self.create_missile(position, direction);
+        }
+
         for missile in self.missiles.iter_mut() {
             missile.time_to_live -= time_in_ms / 1000.0f32;
         }
