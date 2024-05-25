@@ -307,6 +307,7 @@ impl World {
         entity.direction = direction;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
+        entity.angle = direction.angle();
         self.missiles.push(Missile::new(id));
     }
 
