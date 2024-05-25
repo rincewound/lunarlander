@@ -22,6 +22,7 @@ use crate::{
     vecmath::{self, Vec2d},
 };
 
+const MAX_ACCELERATION: f32 = 100.0;
 const VELOCITY_SPACESHIP: f32 = 50.0;
 const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
@@ -186,7 +187,12 @@ impl Physics {
         }
     }
 
-    pub fn tick(&self, time_in_ms: f32, tick_resolution_in_ms: f32, entities: &mut Vec<Entity>) {
+    pub fn physics_tick(
+        &self,
+        time_in_ms: f32,
+        tick_resolution_in_ms: f32,
+        entities: &mut Vec<Entity>,
+    ) {
         let mut num_ticks = (time_in_ms / tick_resolution_in_ms) as u32;
         if num_ticks == 0 {
             num_ticks = 1;
@@ -340,7 +346,17 @@ impl World {
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
         // Do physics (i.e. Gravity & Acceleration) tick
         self.p
-            .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
+            .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
+
+        //TODO: maybe use this to update lander angle smoothly
+        //let rotation = self.lander.rotation;
+        let mut lander_entity = self.get_entity(self.lander.entity_id);
+        if lander_entity.acceleration.len() < 0.01 {
+            //lander_entity.set_acceleration(lander_entity.direction * -1.0);
+        }
+        //entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
+        // if the drive is still enabled and we changed the angle we must update the thrust
+        //self.thrust_toggle(self.lander.drive_enabled);
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -428,14 +444,11 @@ impl World {
         if self.game_state != State::Running {
             return;
         }
-        self.lander.drive_enabled = enable;
         let entity = self.get_entity(self.lander.entity_id);
         if enable {
             let thrust_dir = Vec2d::from_angle(entity.angle);
             entity.set_acceleration(thrust_dir * -5.0);
             // self.sound.accelerate();
-            self.screen_shake_frames = 10;
-            self.screen_shake_strength = 4.0;
         } else {
             entity.set_acceleration(Vec2d::default());
         }
@@ -453,14 +466,11 @@ impl World {
             DirectionKey::Right => Vec2d::new(1.0, 0.0),
         };
         // set direction based on toggled keys
-        let new_dir = if enable {
-            entity.direction + dir_vec
-        } else {
-            entity.direction - dir_vec
-        };
-        entity.direction = new_dir;
-        // update the angle based on the last active direction
+        let new_dir = if enable { dir_vec } else { dir_vec };
+        entity.set_acceleration(new_dir * MAX_ACCELERATION);
         if new_dir.len() > 0.0 {
+            //self.lander.drive_enabled = enable;
+
             let new_angle = if new_dir.y >= 0.0 {
                 new_dir.angle()
             } else {
