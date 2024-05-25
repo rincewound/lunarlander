@@ -55,10 +55,9 @@ impl Vec2d {
         return Vec2d::from_angle(a);
     }
 
-    pub fn random(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Vec2d
-    {
+    pub fn random(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Vec2d {
         let mut rnd = rand::thread_rng();
-        return Vec2d::new(rnd.gen_range(min_x..max_x), rnd.gen_range(min_y..max_y))   
+        return Vec2d::new(rnd.gen_range(min_x..max_x), rnd.gen_range(min_y..max_y));
     }
 }
 

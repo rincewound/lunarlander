@@ -372,7 +372,7 @@ impl World {
 
         //self.render_starfield(canvas, textures);
         //self.render_asteroids(screen_space_transform, canvas);
-        self.render_starship(lander_entity, screen_space_transform, canvas);
+        self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
         if self.whiteout_frames > 0 {
@@ -526,6 +526,7 @@ impl World {
         lander_entity: &Entity,
         screen_space_transform: TransformationMatrix,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        textures: &HashMap<String, Texture>,
     ) {
         let scale =
             vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
@@ -534,9 +535,11 @@ impl World {
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
         let transform = entity_trans * scale * offset;
         let items = [&graphics::StarShip];
+        let texture = textures.get("neon").unwrap();
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::neon_draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
+            draw::neon_draw_lines(canvas, &geometry, Color::RGB(128, 255, 255), true, texture)
+                .unwrap();
         }
 
         if self.lander.drive_enabled {

@@ -9,7 +9,7 @@ pub const StarShip: [Vec2d; 4] = [
     Vec2d::new(-1.0, -1.0),
 ];
 
-pub const LanderScale: Vec2d = Vec2d::new(5.0, 5.0);
+pub const LanderScale: Vec2d = Vec2d::new(15.0, 15.0);
 
 pub const FlameA: [Vec2d; 3] = [
     Vec2d::new(-0.5, -1.5),
