@@ -590,10 +590,12 @@ impl World {
         let entity = self.get_entity(id);
         let position = entity.position;
         let direction = entity.direction;
+        let acceleration = entity.acceleration;
         let angle = entity.angle;
         self.hud.update(
             position,
             direction,
+            acceleration,
             angle,
             self.score,
             self.asteroids.len() as u32,
