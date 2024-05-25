@@ -34,6 +34,13 @@ pub enum BorderBehavior {
     BounceSlowdown,
 }
 
+pub enum DirectionKey {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
 pub struct Entity {
     id: usize,
     position: Vec2d,
@@ -48,7 +55,6 @@ pub struct Entity {
 pub struct Lander {
     entity_id: usize,
     drive_enabled: bool,
-    rotation: f32,
 }
 
 #[derive(Clone, PartialEq)]
@@ -228,7 +234,6 @@ impl World {
         let lander = Lander {
             entity_id: 0,
             drive_enabled: false,
-            rotation: 0.0,
         };
 
         let mut lander_entity = Entity::default(0);
@@ -319,11 +324,12 @@ impl World {
         self.p
             .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
-        let rotation = self.lander.rotation;
-        let mut entity = self.get_entity(self.lander.entity_id);
-        entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
+        //TODO: maybe use this to update lander angle smoothly
+        //let rotation = self.lander.rotation;
+        //let mut entity = self.get_entity(self.lander.entity_id);
+        //entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
         // if the drive is still enabled and we changed the angle we must update the thrust
-        self.thrust_toggle(self.lander.drive_enabled);
+        //self.thrust_toggle(self.lander.drive_enabled);
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -420,25 +426,21 @@ impl World {
         }
     }
 
-    pub(crate) fn rotation_left_toggle(&mut self, enable: bool) {
+    pub(crate) fn direction_toggle(&mut self, dir: DirectionKey, enable: bool) {
         if self.game_state != State::Running {
             return;
         }
+        let mut entity = self.get_entity(self.lander.entity_id);
+        let dir_vec = match dir {
+            DirectionKey::Up => Vec2d::new(0.0, -1.0),
+            DirectionKey::Down => Vec2d::new(0.0, 1.0),
+            DirectionKey::Left => Vec2d::new(-1.0, 0.0),
+            DirectionKey::Right => Vec2d::new(1.0, 0.0),
+        };
         if enable {
-            self.lander.rotation = -1.0;
+            entity.direction = entity.direction + dir_vec;
         } else {
-            self.lander.rotation = 0.0;
-        }
-    }
-
-    pub(crate) fn rotation_right_toggle(&mut self, enable: bool) {
-        if self.game_state != State::Running {
-            return;
-        }
-        if enable {
-            self.lander.rotation = 1.0;
-        } else {
-            self.lander.rotation = 0.0;
+            entity.direction = entity.direction - dir_vec;
         }
     }
 

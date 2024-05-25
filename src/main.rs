@@ -6,6 +6,8 @@ use sdl2::render::Texture;
 use std::collections::HashMap;
 use std::time::Duration;
 
+use simulation::DirectionKey;
+
 mod asteroids;
 mod collision;
 mod draw;
@@ -62,9 +64,10 @@ pub fn main() -> Result<(), String> {
                         println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::Up => sim.thrust_toggle(true),
-                                Keycode::Left => sim.rotation_left_toggle(true),
-                                Keycode::Right => sim.rotation_right_toggle(true),
+                                Keycode::Up => sim.direction_toggle(DirectionKey::Up, true),
+                                Keycode::Down => sim.direction_toggle(DirectionKey::Down, true),
+                                Keycode::Left => sim.direction_toggle(DirectionKey::Left, true),
+                                Keycode::Right => sim.direction_toggle(DirectionKey::Right, true),
                                 Keycode::Space => sim.shoot(),
                                 Keycode::S => sim.toggle_background_music(),
                                 _ => continue,
@@ -80,9 +83,10 @@ pub fn main() -> Result<(), String> {
                         println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::Up => sim.thrust_toggle(false),
-                                Keycode::Left => sim.rotation_left_toggle(false),
-                                Keycode::Right => sim.rotation_right_toggle(false),
+                                Keycode::Up => sim.direction_toggle(DirectionKey::Up, false),
+                                Keycode::Down => sim.direction_toggle(DirectionKey::Down, false),
+                                Keycode::Left => sim.direction_toggle(DirectionKey::Left, false),
+                                Keycode::Right => sim.direction_toggle(DirectionKey::Right, false),
                                 _ => continue,
                             },
                             None => continue,
