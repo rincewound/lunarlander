@@ -48,9 +48,13 @@ pub fn main() -> Result<(), String> {
     let mut neon = texture_c.load_texture("./assets/neon.png").unwrap();
     neon.set_blend_mode(sdl2::render::BlendMode::Add);
 
+    let mut halo = texture_c.load_texture("./assets/halo.png").unwrap();
+    halo.set_blend_mode(sdl2::render::BlendMode::Add);
+
     let mut texture_dict: HashMap<String, Texture> = HashMap::new();
     texture_dict.insert("star".to_string(), star);
     texture_dict.insert("neon".to_string(), neon);
+    texture_dict.insert("halo".to_string(), halo);
 
     'running: loop {
         for event in event_pump.poll_iter() {

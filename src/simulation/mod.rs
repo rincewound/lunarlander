@@ -489,11 +489,21 @@ impl World {
         // check if we have enough enemies:
         if self.enemies.len() < 10 {
             let ent = self.create_entity();
-            let enemy = Enemy {
-                ty: EnemyType::Rombus,
-                entity_id: ent,
-                hull: &ROMBUS_ENEMY,
-            };
+            let enemy;
+
+            if thread_rng().gen_range(0..100) > 50 {
+                enemy = Enemy {
+                    ty: EnemyType::Rombus,
+                    entity_id: ent,
+                    hull: &ROMBUS_ENEMY,
+                };
+            } else {
+                enemy = Enemy {
+                    ty: EnemyType::Rect,
+                    entity_id: ent,
+                    hull: &RECT_ENEMY,
+                };
+            }
             let the_entity = self.get_entity(ent);
             the_entity.position = Vec2d {
                 x: thread_rng().gen_range(0..(WorldSize.x as usize)) as f32,
@@ -506,7 +516,7 @@ impl World {
             let en = &self.enemies[i];
             let ty = &en.ty;
             match ty {
-                EnemyType::Rect => todo!(),
+                EnemyType::Rect => self.rombus_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
             }
         }
@@ -625,6 +635,18 @@ impl World {
             geometry = transform.transform_many(&graphics::FlameA.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
+
+        let lander_center = screen_space_transform.transform(&lander_entity.position);
+        let _ = canvas.copy(
+            textures.get("halo").unwrap(),
+            None,
+            sdl2::rect::Rect::new(
+                lander_center.x as i32 - 32,
+                lander_center.y as i32 - 32,
+                64,
+                64,
+            ),
+        );
     }
 
     fn render_enemies(
