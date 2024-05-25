@@ -386,6 +386,7 @@ impl World {
 
         //self.render_starfield(canvas, textures);
         //self.render_asteroids(screen_space_transform, canvas);
+        self.render_world_border(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -634,6 +635,40 @@ impl World {
                 ),
             );
         }
+    }
+
+    fn render_world_border(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+    ) {
+        let width: u32 = WorldSize.x as u32;
+        let height: u32 = WorldSize.y as u32;
+        let rect: Rect = sdl2::rect::Rect::new(0, 0, width, height);
+
+        let mut top_left: Vec2d =
+            Vec2d::new((rect.top_left()).x as f32, (rect.top_left()).y as f32);
+
+        let mut top_right: Vec2d =
+            Vec2d::new((rect.top_right()).x as f32, (rect.top_right()).y as f32);
+
+        let mut bot_left: Vec2d =
+            Vec2d::new((rect.bottom_left()).x as f32, (rect.bottom_left()).y as f32);
+
+        let mut bot_right: Vec2d = Vec2d::new(
+            (rect.bottom_right()).x as f32,
+            (rect.bottom_right()).y as f32,
+        );
+
+        top_left = screen_space_transform.transform(&top_left);
+        top_right = screen_space_transform.transform(&top_right);
+        bot_left = screen_space_transform.transform(&bot_left);
+        bot_right = screen_space_transform.transform(&bot_right);
+
+        draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
+        draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
+        draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
+        draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
     }
 
     fn make_starfield() -> Vec<Star> {
