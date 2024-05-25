@@ -45,6 +45,17 @@ pub enum DirectionKey {
     Right,
 }
 
+impl DirectionKey {
+    fn get_vec2d(&self) -> Vec2d {
+        match self {
+            DirectionKey::Up => Vec2d::new(0.0, -1.0),
+            DirectionKey::Down => Vec2d::new(0.0, 1.0),
+            DirectionKey::Left => Vec2d::new(-1.0, 0.0),
+            DirectionKey::Right => Vec2d::new(1.0, 0.0),
+        }
+    }
+}
+
 pub struct Entity {
     id: usize,
     position: Vec2d,
@@ -435,13 +446,8 @@ impl World {
         if self.game_state != State::Running {
             return;
         }
+        let dir_vec = dir.get_vec2d();
         let entity = self.get_entity(self.lander.entity_id);
-        let dir_vec = match dir {
-            DirectionKey::Up => Vec2d::new(0.0, -1.0),
-            DirectionKey::Down => Vec2d::new(0.0, 1.0),
-            DirectionKey::Left => Vec2d::new(-1.0, 0.0),
-            DirectionKey::Right => Vec2d::new(1.0, 0.0),
-        };
         let accel_factor = dir_vec * MAX_ACCELERATION;
         let new_accel = if enable {
             entity.acceleration + accel_factor
@@ -450,8 +456,6 @@ impl World {
         };
         entity.set_acceleration(new_accel);
         if new_accel.len() > 0.0 {
-            //self.lander.drive_enabled = enable;
-
             let new_angle = if new_accel.y >= 0.0 {
                 new_accel.angle()
             } else {
@@ -462,9 +466,13 @@ impl World {
         } else {
             // no direction do not change angle
         }
+        self.lander.drive_enabled = new_accel.len() > 0.001;
     }
 
-    pub(crate) fn shoot(&mut self) {
+    pub(crate) fn shoot(&mut self, dir: DirectionKey, enable: bool) {
+        if self.game_state != State::Running {
+            return;
+        }
         let id = self.lander.entity_id;
         let entity = self.get_entity_immutable(id);
         let position = entity.position;
