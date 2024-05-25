@@ -43,7 +43,7 @@ pub fn neon_draw_line(
     outer_color.g = (color.g as f32 / 1.15) as u8;
     outer_color.b = (color.b as f32 / 1.15) as u8;
 
-    let mut width: f32 = 12.0f32;
+    let mut width: f32 = 16.0f32;
     for i in 0..2 {
         // We calculate a rectangle that is wider than the line and will be
         // filled with a neon texture:
