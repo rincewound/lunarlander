@@ -354,10 +354,16 @@ impl World {
         //let rotation = self.lander.rotation;
         let mut lander_entity = self.get_entity(self.lander.entity_id);
         if lander_entity.acceleration.len() < 0.01 && lander_entity.direction.len() > 0.0 {
-            let sim_time_in_seconds = time_in_ms / 1000.0;
-            let break_fragment =
-                lander_entity.direction.normalized() * 2.0 * MAX_ACCELERATION * sim_time_in_seconds;
-            lander_entity.direction = lander_entity.direction - break_fragment;
+            lander_entity.direction = if lander_entity.direction.len() > 0.01 {
+                let sim_time_in_seconds = time_in_ms / 1000.0;
+                let break_fragment = lander_entity.direction.normalized()
+                    * 2.0
+                    * MAX_ACCELERATION
+                    * sim_time_in_seconds;
+                lander_entity.direction - break_fragment
+            } else {
+                Vec2d::default()
+            }
         }
 
         self.missile_tick(time_in_ms);
