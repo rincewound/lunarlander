@@ -11,7 +11,7 @@ use sdl2::render::{BlendMode, Texture};
 use crate::asteroids::{self, MAX_SCALE};
 use crate::draw::draw_lines;
 use crate::graphics::{
-    self, render_game_over, render_won_text, ENTITY_SCALE, RECT_ENEMY, RECT_ENEMY_COLOR,
+    self, render_game_over, render_won_text, ENTITY_SCALE, MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR,
     ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
 };
 use crate::sound;
@@ -324,6 +324,7 @@ impl World {
         entity.direction = direction;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
+        entity.angle = direction.angle();
         self.missiles.push(Missile::new(id));
     }
 
@@ -450,14 +451,11 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
     ) {
         for missile in self.missiles.iter() {
-            let pos = screen_space_transform
-                .transform(&self.get_entity_immutable(missile.entity_id).position);
-            let _ = draw::draw_line(
-                canvas,
-                &pos,
-                &(pos + Vec2d::new(1.0, 1.0)),
-                Color::RGB(255, 255, 255),
-            );
+            let entity = self.get_entity_immutable(missile.entity_id);
+            let scale = vecmath::TransformationMatrix::scale(7f32, 7f32);
+            let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
+            let vecs = entity_trans.transform_many(&MISSILE.to_vec());
+            let _ = draw::draw_lines(canvas, &vecs, Color::RGBA(255, 255, 255, 255), true);
         }
     }
 
