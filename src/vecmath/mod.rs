@@ -1,8 +1,4 @@
-use std::{arch::x86_64::_mm_sqrt_ps, f32::consts::PI};
-
 use rand::Rng;
-
-use crate::draw;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2d {

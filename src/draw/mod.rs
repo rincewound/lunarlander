@@ -75,7 +75,7 @@ pub fn neon_draw_line(
         ];
 
         sdl2::sys::SDL_SetRenderDrawColor(renderer, 255, 255, 255, 128);
-        let res = sdl2::sys::SDL_RenderGeometry(
+        let _ = sdl2::sys::SDL_RenderGeometry(
             renderer,
             neon_tex.raw(),
             vertices1.as_ptr(),
@@ -84,7 +84,7 @@ pub fn neon_draw_line(
             0,
         );
 
-        let res = sdl2::sys::SDL_RenderGeometry(
+        let _ = sdl2::sys::SDL_RenderGeometry(
             renderer,
             neon_tex.raw(),
             vertices2.as_ptr(),
@@ -123,8 +123,6 @@ pub fn neon_draw_line(
         Point::new(from.x as i32, from.y as i32),
         Point::new(to.x as i32, to.y as i32),
     );
-
-    Ok(())
 }
 
 pub fn draw_line(

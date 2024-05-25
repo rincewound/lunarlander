@@ -15,7 +15,7 @@ fn make_linestring(points: &Vec<Vec2d>) -> LineString {
         .iter()
         .map(|v| coord!(x : v.x as f64, y: v.y as f64))
         .collect();
-    let mut ls = LineString::new(coords);
+    let ls = LineString::new(coords);
     ls
 }
 

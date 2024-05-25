@@ -17,8 +17,8 @@ mod simulation;
 mod sound;
 mod vecmath;
 
-pub const window_width: u32 = 800;
-pub const window_height: u32 = 600;
+pub const window_width: u32 = 1024;
+pub const window_height: u32 = 768;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
