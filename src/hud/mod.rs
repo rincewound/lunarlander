@@ -26,24 +26,6 @@ impl Hud {
         }
     }
 
-    pub fn from(
-        position: Vec2d,
-        direction: Vec2d,
-        acceleration: Vec2d,
-        angle: f32,
-        score: u32,
-        asteroids: u32,
-    ) -> Self {
-        Self {
-            position,
-            direction,
-            acceleration,
-            angle,
-            score,
-            asteroids,
-        }
-    }
-
     pub fn update(
         &mut self,
         position: Vec2d,
@@ -59,26 +41,6 @@ impl Hud {
         self.angle = angle;
         self.score = score;
         self.asteroids = asteroids;
-    }
-
-    pub fn updatePosition(&mut self, position: Vec2d) {
-        self.position = position;
-    }
-
-    pub fn updateDirection(&mut self, direction: Vec2d) {
-        self.direction = direction;
-    }
-
-    pub fn updateAcceleration(&mut self, acceleration: Vec2d) {
-        self.acceleration = acceleration;
-    }
-
-    pub fn updateAngle(&mut self, angle: f32) {
-        self.angle = angle;
-    }
-
-    pub fn updateScore(&mut self, score: u32) {
-        self.score = score;
     }
 
     pub fn render(&self, canvas: &mut Canvas<Window>) {

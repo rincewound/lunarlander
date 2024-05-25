@@ -1,9 +1,7 @@
-use crate::vecmath;
 pub use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
-use sdl2::sys::{SDL_Color, SDL_FPoint, SDL_SetRenderDrawColor, SDL_Vertex};
-use sdl2::ttf;
+use sdl2::sys::{SDL_Color, SDL_FPoint, SDL_Vertex};
 use sdl2::video::Window;
 use sdl2::{pixels::Color, render::Texture};
 use std::path::Path;
@@ -50,16 +48,16 @@ pub fn neon_draw_line(
         width = width / 2.0f32;
 
         let line_dir = (to.clone() - from.clone()).normalized();
-        let rotPlus90 = TransformationMatrix::rotate(std::f32::consts::FRAC_PI_2);
-        let rotMinus90 = TransformationMatrix::rotate(-std::f32::consts::FRAC_PI_2);
+        let rot_plus_90 = TransformationMatrix::rotate(std::f32::consts::FRAC_PI_2);
+        let rot_minus_90 = TransformationMatrix::rotate(-std::f32::consts::FRAC_PI_2);
 
-        let toUpperPoint = rotPlus90.transform(&line_dir) * width;
-        let toLowerPoint = rotMinus90.transform(&line_dir) * width;
+        let to_upper_point = rot_plus_90.transform(&line_dir) * width;
+        let to_lower_point = rot_minus_90.transform(&line_dir) * width;
 
-        let p0 = from.clone() + toUpperPoint;
-        let p1 = to.clone() + toUpperPoint;
-        let p2 = to.clone() + toLowerPoint;
-        let p3 = from.clone() + toLowerPoint;
+        let p0 = from.clone() + to_upper_point;
+        let p1 = to.clone() + to_upper_point;
+        let p2 = to.clone() + to_lower_point;
+        let p3 = from.clone() + to_lower_point;
 
         canvas.set_draw_color(outer_color);
 

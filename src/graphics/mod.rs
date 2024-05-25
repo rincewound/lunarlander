@@ -30,16 +30,10 @@ pub const ROMBUS_ENEMY: [Vec2d; 4] = [
 
 pub const ROMBUS_ENEMY_COLOR: Color = Color::RGBA(255, 255, 0, 255);
 
-pub const FlameA: [Vec2d; 3] = [
+pub const FLAME_A: [Vec2d; 3] = [
     Vec2d::new(-0.5, -1.5),
     Vec2d::new(0.5, -1.5),
     Vec2d::new(0.0, -3.0),
-];
-
-pub const FlameB: [Vec2d; 3] = [
-    Vec2d::new(-0.5, -1.5),
-    Vec2d::new(0.5, -1.5),
-    Vec2d::new(0.0, -1.5),
 ];
 
 pub fn render_game_over(

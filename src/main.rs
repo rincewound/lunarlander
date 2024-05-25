@@ -17,15 +17,15 @@ mod simulation;
 mod sound;
 mod vecmath;
 
-pub const window_width: u32 = 1024;
-pub const window_height: u32 = 768;
+pub const WINDOW_WIDTH: u32 = 1024;
+pub const WINDOW_HEIGHT: u32 = 768;
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
     let window = video_subsystem
-        .window("rust-sdl2 demo: Video", window_width, window_height)
+        .window("rust-sdl2 demo: Video", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .resizable()
         .opengl()
@@ -39,7 +39,7 @@ pub fn main() -> Result<(), String> {
     canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
 
-    let mut sim = simulation::World::new(window_width, window_height);
+    let mut sim = simulation::World::new(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     let texture_c = canvas.texture_creator();
     let mut star = texture_c.load_texture("./assets/star.png").unwrap();

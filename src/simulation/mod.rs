@@ -87,20 +87,13 @@ pub enum State {
     Lost,
 }
 
-pub struct Star {
-    pos: Vec2d,
-    layer: u8,
-}
-
 pub struct World {
     p: Physics,
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     enemies: Vec<Enemy<'static>>,
-    starfield: Vec<Star>,
     lander: Lander,
-    asteroids: Vec<Asteroid>,
     hud: hud::Hud,
     game_state: State,
     score: u32,
@@ -174,7 +167,7 @@ impl Entity {
     }
 }
 
-const WorldSize: Vec2d = Vec2d {
+const WORLD_SIZE: Vec2d = Vec2d {
     x: 1.0 * 800.0,
     y: 1.0 * 600.0,
 };
@@ -223,8 +216,8 @@ impl Physics {
 
                     if new_pos.x < 0.0
                         || new_pos.y < 0.0
-                        || new_pos.x > WorldSize.x
-                        || new_pos.y > WorldSize.y
+                        || new_pos.x > WORLD_SIZE.x
+                        || new_pos.y > WORLD_SIZE.y
                     {
                         match e.border_behavior {
                             BorderBehavior::Dismiss => {
@@ -260,7 +253,7 @@ impl World {
         };
 
         let mut lander_entity = Entity::default(0);
-        lander_entity.set_position(WorldSize / 2.0);
+        lander_entity.set_position(WORLD_SIZE / 2.0);
         lander_entity.max_velocity = VELOCITY_SPACESHIP;
         lander_entity.border_behavior = BorderBehavior::BounceSlowdown;
 
@@ -270,11 +263,9 @@ impl World {
             entities: vec![lander_entity],
             lander,
             enemies: Vec::new(),
-            asteroids: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
-            starfield: Self::make_starfield(),
             score: 0,
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
@@ -379,11 +370,11 @@ impl World {
             State::Running => (),
         }
 
-        let mut ShakeTransForm = TransformationMatrix::unit();
+        let mut shake_transform = TransformationMatrix::unit();
         if self.screen_shake_frames > 0 {
             self.screen_shake_frames -= 1;
             let mut rnd = rand::thread_rng();
-            ShakeTransForm = ShakeTransForm
+            shake_transform = shake_transform
                 * TransformationMatrix::translation(
                     rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
                     rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
@@ -395,7 +386,7 @@ impl World {
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
-            * ShakeTransForm
+            * shake_transform
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
         //self.render_starfield(canvas, textures);
@@ -415,7 +406,7 @@ impl World {
             canvas.set_blend_mode(BlendMode::None);
         }
 
-        self.renderHud(canvas);
+        self.render_hud(canvas);
     }
 
     fn render_missiles(
@@ -510,8 +501,8 @@ impl World {
             }
             let the_entity = self.get_entity(ent);
             the_entity.position = Vec2d {
-                x: thread_rng().gen_range(0..(WorldSize.x as usize)) as f32,
-                y: thread_rng().gen_range(0..(WorldSize.y as usize)) as f32,
+                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
+                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
             };
             self.enemies.push(enemy);
         }
@@ -594,7 +585,7 @@ impl World {
         self.enemies = new_enemies.collect();
     }
 
-    fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let id = self.lander.entity_id;
         let entity = self.get_entity(id);
         let position = entity.position;
@@ -607,7 +598,7 @@ impl World {
             acceleration,
             angle,
             self.score,
-            self.asteroids.len() as u32,
+            self.enemies.len() as u32,
         );
         self.hud.render(canvas);
     }
@@ -636,7 +627,7 @@ impl World {
 
         if self.lander.drive_enabled {
             let geometry;
-            geometry = transform.transform_many(&graphics::FlameA.to_vec());
+            geometry = transform.transform_many(&graphics::FLAME_A.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
 
@@ -687,39 +678,13 @@ impl World {
         }
     }
 
-    fn render_starfield(
-        &self,
-        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-        textures: &HashMap<String, Texture>,
-    ) {
-        let lander_pos = self
-            .get_entity_immutable(self.lander.entity_id)
-            .position
-            .clone();
-
-        let texture = textures.get("star").unwrap();
-        for star in self.starfield.iter() {
-            let starpos = (star.pos.clone() - lander_pos) * (0.75 + star.layer as f32) as f32;
-            let _ = canvas.copy(
-                texture,
-                None,
-                sdl2::rect::Rect::new(
-                    starpos.x as i32 % WorldSize.x as i32,
-                    starpos.y as i32 % WorldSize.x as i32,
-                    12 / (1 + star.layer as u32),
-                    12 / (1 + star.layer as u32),
-                ),
-            );
-        }
-    }
-
     fn render_world_border(
         &self,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         screen_space_transform: TransformationMatrix,
     ) {
-        let width: u32 = WorldSize.x as u32;
-        let height: u32 = WorldSize.y as u32;
+        let width: u32 = WORLD_SIZE.x as u32;
+        let height: u32 = WORLD_SIZE.y as u32;
         let rect: Rect = sdl2::rect::Rect::new(0, 0, width, height);
 
         let mut top_left: Vec2d =
@@ -747,29 +712,7 @@ impl World {
         let _ = draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
     }
 
-    fn make_starfield() -> Vec<Star> {
-        let mut output = Vec::<Star>::new();
-        let mut rnd = rand::thread_rng();
-        for _ in 0..3000 {
-            let s = Star {
-                pos: Vec2d::new(
-                    rnd.gen_range(0..WorldSize.x as i32) as f32,
-                    rnd.gen_range(0..WorldSize.y as i32) as f32,
-                ),
-                layer: rnd.gen_range(0..=3) as u8,
-            };
-            output.push(s);
-        }
-        output
-    }
-
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
     }
-}
-
-mod tests {
-    use crate::{simulation, vecmath::Vec2d};
-
-    use super::{Entity, Physics};
 }
