@@ -5,9 +5,9 @@ use geo::LineString;
 
 fn is_on_segment(a: Vec2d, b: Vec2d, sample: Vec2d) -> bool {
     let total = (a - b).len();
-    let dA = (a - sample).len();
-    let dB = (b - sample).len();
-    return ((dA + dB) - total).abs() < 0.001;
+    let d_a = (a - sample).len();
+    let d_b = (b - sample).len();
+    return ((d_a + d_b) - total).abs() < 0.001;
 }
 
 fn make_linestring(points: &Vec<Vec2d>) -> LineString {
@@ -15,7 +15,7 @@ fn make_linestring(points: &Vec<Vec2d>) -> LineString {
         .iter()
         .map(|v| coord!(x : v.x as f64, y: v.y as f64))
         .collect();
-    let mut ls = LineString::new(coords);
+    let ls = LineString::new(coords);
     ls
 }
 

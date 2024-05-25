@@ -3,14 +3,17 @@
 use std::collections::HashMap;
 use std::{f32::consts::PI, num};
 
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids::{self, MAX_SCALE};
 use crate::draw::draw_lines;
-use crate::graphics::{self, render_game_over, render_won_text, LanderColor};
+use crate::graphics::{
+    self, render_game_over, render_won_text, ENTITY_SCALE, RECT_ENEMY, RECT_ENEMY_COLOR,
+    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
+};
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
@@ -19,6 +22,7 @@ use crate::{
     vecmath::{self, Vec2d},
 };
 
+const MAX_ACCELERATION: f32 = 100.0;
 const VELOCITY_SPACESHIP: f32 = 50.0;
 const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
@@ -69,9 +73,11 @@ enum EnemyType {
     Rombus,
 }
 
-pub struct Enemy {
+#[derive(Clone)]
+pub struct Enemy<'a> {
     entity_id: usize,
     ty: EnemyType,
+    hull: &'a [Vec2d],
 }
 
 #[derive(PartialEq)]
@@ -81,21 +87,14 @@ pub enum State {
     Lost,
 }
 
-pub struct Star {
-    pos: Vec2d,
-    layer: u8,
-}
-
 pub struct World {
     p: Physics,
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
-    enemies: Vec<Enemy>,
-    starfield: Vec<Star>,
     grid: Vec<Vertex>,
+    enemies: Vec<Enemy<'static>>,
     lander: Lander,
-    asteroids: Vec<Asteroid>,
     hud: hud::Hud,
     game_state: State,
     score: u32,
@@ -106,6 +105,11 @@ pub struct World {
     sound: sound::Sound,
     whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
 }
+
+const WORLD_SIZE: Vec2d = Vec2d {
+    x: 1.0 * 800.0,
+    y: 1.0 * 600.0,
+};
 
 pub struct Vertex {
     main_position: Vec2d,
@@ -183,8 +187,6 @@ impl Entity {
     }
 }
 
-const WorldSize: Vec2d = Vec2d { x: 800.0, y: 600.0 };
-
 impl Physics {
     pub fn default() -> Self {
         Physics {
@@ -193,7 +195,12 @@ impl Physics {
         }
     }
 
-    pub fn tick(&self, time_in_ms: f32, tick_resolution_in_ms: f32, entities: &mut Vec<Entity>) {
+    pub fn physics_tick(
+        &self,
+        time_in_ms: f32,
+        tick_resolution_in_ms: f32,
+        entities: &mut Vec<Entity>,
+    ) {
         let mut num_ticks = (time_in_ms / tick_resolution_in_ms) as u32;
         if num_ticks == 0 {
             num_ticks = 1;
@@ -224,8 +231,8 @@ impl Physics {
 
                     if new_pos.x < 0.0
                         || new_pos.y < 0.0
-                        || new_pos.x > WorldSize.x
-                        || new_pos.y > WorldSize.y
+                        || new_pos.x > WORLD_SIZE.x
+                        || new_pos.y > WORLD_SIZE.y
                     {
                         match e.border_behavior {
                             BorderBehavior::Dismiss => {
@@ -261,7 +268,7 @@ impl World {
         };
 
         let mut lander_entity = Entity::default(0);
-        lander_entity.set_position(WorldSize / 2.0);
+        lander_entity.set_position(WORLD_SIZE / 2.0);
         lander_entity.max_velocity = VELOCITY_SPACESHIP;
         lander_entity.border_behavior = BorderBehavior::BounceSlowdown;
 
@@ -271,11 +278,9 @@ impl World {
             entities: vec![lander_entity],
             lander,
             enemies: Vec::new(),
-            asteroids: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
-            starfield: Self::make_starfield(),
             grid: Self::make_grid(),
             score: 0,
             sound: sound::Sound::new(),
@@ -348,14 +353,17 @@ impl World {
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
         // Do physics (i.e. Gravity & Acceleration) tick
         self.p
-            .tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
+            .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
-        //let mut entity = self.get_entity(self.lander.entity_id);
-        //entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
-        // if the drive is still enabled and we changed the angle we must update the thrust
-        //self.thrust_toggle(self.lander.drive_enabled);
+        let mut lander_entity = self.get_entity(self.lander.entity_id);
+        if lander_entity.acceleration.len() < 0.01 && lander_entity.direction.len() > 0.0 {
+            let sim_time_in_seconds = time_in_ms / 1000.0;
+            let break_fragment =
+                lander_entity.direction.normalized() * 2.0 * MAX_ACCELERATION * sim_time_in_seconds;
+            lander_entity.direction = lander_entity.direction - break_fragment;
+        }
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -378,11 +386,11 @@ impl World {
             State::Running => (),
         }
 
-        let mut ShakeTransForm = TransformationMatrix::unit();
+        let mut shake_transform = TransformationMatrix::unit();
         if self.screen_shake_frames > 0 {
             self.screen_shake_frames -= 1;
             let mut rnd = rand::thread_rng();
-            ShakeTransForm = ShakeTransForm
+            shake_transform = shake_transform
                 * TransformationMatrix::translation(
                     rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
                     rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
@@ -394,11 +402,12 @@ impl World {
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
             * TransformationMatrix::translation_v(lander_entity.position * -1.0)
-            * ShakeTransForm
+            * shake_transform
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
         //self.render_starfield(canvas, textures);
         //self.render_asteroids(screen_space_transform, canvas);
+        self.render_enemies(canvas, screen_space_transform, textures);
         self.render_world_border(canvas, screen_space_transform);
         self.render_grid(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
@@ -409,12 +418,12 @@ impl World {
             let alpha = 255 * (1.0 - (10.0 / self.whiteout_frames as f32)) as u8;
             canvas.set_draw_color(Color::RGBA(255, 255, 255, alpha));
             canvas.set_blend_mode(BlendMode::Mul);
-            canvas.fill_rect(Rect::new(0, 0, 800, 600));
+            let _ = canvas.fill_rect(Rect::new(0, 0, 800, 600));
             canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
             canvas.set_blend_mode(BlendMode::None);
         }
 
-        self.renderHud(canvas);
+        self.render_hud(canvas);
     }
 
     fn render_missiles(
@@ -439,47 +448,31 @@ impl World {
         self.screen_size.y = height;
     }
 
-    pub(crate) fn thrust_toggle(&mut self, enable: bool) {
-        if self.game_state != State::Running {
-            return;
-        }
-        self.lander.drive_enabled = enable;
-        let entity = self.get_entity(self.lander.entity_id);
-        if enable {
-            let thrust_dir = Vec2d::from_angle(entity.angle);
-            entity.set_acceleration(thrust_dir * -5.0);
-            // self.sound.accelerate();
-            self.screen_shake_frames = 10;
-            self.screen_shake_strength = 4.0;
-        } else {
-            entity.set_acceleration(Vec2d::default());
-        }
-    }
-
     pub(crate) fn direction_toggle(&mut self, dir: DirectionKey, enable: bool) {
         if self.game_state != State::Running {
             return;
         }
-        let mut entity = self.get_entity(self.lander.entity_id);
+        let entity = self.get_entity(self.lander.entity_id);
         let dir_vec = match dir {
             DirectionKey::Up => Vec2d::new(0.0, -1.0),
             DirectionKey::Down => Vec2d::new(0.0, 1.0),
             DirectionKey::Left => Vec2d::new(-1.0, 0.0),
             DirectionKey::Right => Vec2d::new(1.0, 0.0),
         };
-        // set direction based on toggled keys
-        let new_dir = if enable {
-            entity.direction + dir_vec
+        let accel_factor = dir_vec * MAX_ACCELERATION;
+        let new_accel = if enable {
+            entity.acceleration + accel_factor
         } else {
-            entity.direction - dir_vec
+            entity.acceleration - accel_factor
         };
-        entity.direction = new_dir;
-        // update the angle based on the last active direction
-        if new_dir.len() > 0.0 {
-            let new_angle = if new_dir.y >= 0.0 {
-                new_dir.angle()
+        entity.set_acceleration(new_accel);
+        if new_accel.len() > 0.0 {
+            //self.lander.drive_enabled = enable;
+
+            let new_angle = if new_accel.y >= 0.0 {
+                new_accel.angle()
             } else {
-                new_dir.rotate(PI).angle() + PI
+                new_accel.rotate(PI).angle() + PI
             };
             // + pi because drawing is upside down
             entity.angle = new_angle + PI;
@@ -505,17 +498,37 @@ impl World {
     }
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
-        // for en in self.enemies.iter() {
-        //     match en.ty {
-        //         EnemyType::Rect => todo!(),
-        //         EnemyType::Rombus => self.rombus_tick(en.entity_id),
-        //     }
-        // }
+        // check if we have enough enemies:
+        if self.enemies.len() < 10 {
+            let ent = self.create_entity();
+            let enemy;
+
+            if thread_rng().gen_range(0..100) > 50 {
+                enemy = Enemy {
+                    ty: EnemyType::Rombus,
+                    entity_id: ent,
+                    hull: &ROMBUS_ENEMY,
+                };
+            } else {
+                enemy = Enemy {
+                    ty: EnemyType::Rect,
+                    entity_id: ent,
+                    hull: &RECT_ENEMY,
+                };
+            }
+            let the_entity = self.get_entity(ent);
+            the_entity.position = Vec2d {
+                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
+                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
+            };
+            self.enemies.push(enemy);
+        }
+
         for i in 0..self.enemies.len() {
             let en = &self.enemies[i];
             let ty = &en.ty;
             match ty {
-                EnemyType::Rect => todo!(),
+                EnemyType::Rect => self.rombus_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
             }
         }
@@ -527,9 +540,11 @@ impl World {
             .position
             .clone();
         let en = &self.enemies[rombus_id];
-        let mut own_entity = self.get_entity(en.entity_id);
-        let new_dir = (player_pos - own_entity.position).normalized();
+        let own_entity = self.get_entity(en.entity_id);
+        let new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+        own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
+        own_entity.max_velocity = 25.0f32;
     }
 
     fn do_collision_detection(&mut self) {
@@ -537,37 +552,35 @@ impl World {
         let lander_entity = self.get_entity_immutable(id);
         let lander_position = lander_entity.position;
 
-        let mut asteroids_to_delete = Vec::<Asteroid>::new();
+        let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
 
-        for ast in self.asteroids.iter() {
-            // Check collision against player:
-            let asteroid_entity = self.get_entity_immutable(ast.entity_id);
-            let asteroid_hull = &ast.get_transformed_hull(asteroid_entity);
-            let collision = collision::hit_test(lander_position, asteroid_hull); // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
+        for enemy in self.enemies.iter() {
+            // create collidable hull for entity:
+            let enemy_ent = self.get_entity_immutable(enemy.entity_id);
+            let enemy_transform = enemy_ent.get_transform();
+            let scale_transform =
+                vecmath::TransformationMatrix::scale(ENTITY_SCALE.x, ENTITY_SCALE.y);
+            let hull_transform = enemy_transform * scale_transform;
+            let enemy_hull = hull_transform.transform_many(&enemy.hull.to_vec());
+            let collision = collision::hit_test(lander_position, &enemy_hull); // Primitive! This will only ever trigger, if the center of the starship is inside the asteroid.
             if collision {
                 self.sound.die();
                 self.game_state = State::Lost;
             }
-
             // Check collision against missiles
             for m in self.missiles.iter() {
                 let missile_entity = self.get_entity_immutable(m.entity_id);
                 let projectile_collision =
-                    collision::hit_test(missile_entity.position, asteroid_hull);
+                    collision::hit_test(missile_entity.position, &enemy_hull);
 
                 // create two new asteroids, smaller than the previous one, but
                 // flying in other directions.
                 // also: Schedule this asteroid for deletion
                 if projectile_collision {
                     self.sound.explode();
-                    asteroids_to_delete.push(ast.clone());
+                    enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
-                    if ast.get_scale() == MAX_SCALE {
-                        self.whiteout_frames = 5;
-                        self.screen_shake_frames = 25;
-                        self.screen_shake_strength = 12.0;
-                    }
                     self.score += 100;
                 }
             }
@@ -578,22 +591,31 @@ impl World {
             .clone()
             .into_iter()
             .filter(|a| !missiles_to_delete.contains(&a.entity_id));
+        let new_enemies = self
+            .enemies
+            .clone()
+            .into_iter()
+            .filter(|a| !enemies_to_delete.contains(&a.entity_id));
         self.garbage_collect_entities(&missiles_to_delete);
+        self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
+        self.enemies = new_enemies.collect();
     }
 
-    fn renderHud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let id = self.lander.entity_id;
         let entity = self.get_entity(id);
         let position = entity.position;
         let direction = entity.direction;
+        let acceleration = entity.acceleration;
         let angle = entity.angle;
         self.hud.update(
             position,
             direction,
+            acceleration,
             angle,
             self.score,
-            self.asteroids.len() as u32,
+            self.enemies.len() as u32,
         );
         self.hud.render(canvas);
     }
@@ -605,49 +627,71 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         textures: &HashMap<String, Texture>,
     ) {
-        let scale =
-            vecmath::TransformationMatrix::scale(graphics::LanderScale.x, graphics::LanderScale.y);
+        let scale = vecmath::TransformationMatrix::scale(
+            graphics::ENTITY_SCALE.x,
+            graphics::ENTITY_SCALE.y,
+        );
         let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
         // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
-        let transform = entity_trans * scale; // * offset;
-        let items = [&graphics::StarShip];
+        let transform = entity_trans * scale * offset;
+        let items = [&graphics::STARSHIP];
         let texture = textures.get("neon").unwrap();
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::neon_draw_lines(canvas, &geometry, LanderColor, true, texture).unwrap();
+            draw::neon_draw_lines(canvas, &geometry, STARSHIP_COLOR, true, texture).unwrap();
         }
 
         if self.lander.drive_enabled {
             let geometry;
-            geometry = transform.transform_many(&graphics::FlameA.to_vec());
+            geometry = transform.transform_many(&graphics::FLAME_A.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
+
+        let lander_center = screen_space_transform.transform(&lander_entity.position);
+        let _ = canvas.copy(
+            textures.get("halo").unwrap(),
+            None,
+            sdl2::rect::Rect::new(
+                lander_center.x as i32 - 32,
+                lander_center.y as i32 - 32,
+                64,
+                64,
+            ),
+        );
     }
 
-    fn render_starfield(
+    fn render_enemies(
         &self,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-        textures: &HashMap<String, Texture>,
+        screen_space_transform: TransformationMatrix,
+        textures: &HashMap<String, Texture<'_>>,
     ) {
-        let lander_pos = self
-            .get_entity_immutable(self.lander.entity_id)
-            .position
-            .clone();
+        for enemy in self.enemies.iter() {
+            let entity = self.get_entity_immutable(enemy.entity_id);
 
-        let texture = textures.get("star").unwrap();
-        for star in self.starfield.iter() {
-            let starpos = (star.pos.clone() - lander_pos) * (0.75 + star.layer as f32) as f32;
-            let _ = canvas.copy(
-                texture,
-                None,
-                sdl2::rect::Rect::new(
-                    starpos.x as i32 % WorldSize.x as i32,
-                    starpos.y as i32 % WorldSize.x as i32,
-                    12 / (1 + star.layer as u32),
-                    12 / (1 + star.layer as u32),
-                ),
+            let items;
+            let col;
+            match enemy.ty {
+                EnemyType::Rect => {
+                    items = [&RECT_ENEMY];
+                    col = RECT_ENEMY_COLOR;
+                }
+                EnemyType::Rombus => {
+                    items = [&ROMBUS_ENEMY];
+                    col = ROMBUS_ENEMY_COLOR;
+                }
+            }
+            let scale = vecmath::TransformationMatrix::scale(
+                graphics::ENTITY_SCALE.x,
+                graphics::ENTITY_SCALE.y,
             );
+            let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
+            let texture = textures.get("neon").unwrap();
+            for parts in items.iter() {
+                let geometry = entity_trans.transform_many(&parts.to_vec());
+                draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
+            }
         }
     }
 
@@ -656,8 +700,8 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         screen_space_transform: TransformationMatrix,
     ) {
-        let width: u32 = WorldSize.x as u32;
-        let height: u32 = WorldSize.y as u32;
+        let width: u32 = WORLD_SIZE.x as u32;
+        let height: u32 = WORLD_SIZE.y as u32;
         let rect: Rect = sdl2::rect::Rect::new(0, 0, width, height);
 
         let mut top_left: Vec2d =
@@ -690,8 +734,8 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         screen_space_transform: TransformationMatrix,
     ) {
-        let row_count = (WorldSize.x / 20.0) as usize;
-        let col_count = (WorldSize.y / 20.0) as usize;
+        let row_count = (WORLD_SIZE.x / 20.0) as usize;
+        let col_count = (WORLD_SIZE.y / 20.0) as usize;
 
         //draw horizontal
         let mut current_row: usize = 0;
@@ -731,9 +775,9 @@ impl World {
 
         let offset = 20.0;
         let mut y = 0.0;
-        while y < WorldSize.y {
+        while y < WORLD_SIZE.y {
             let mut x = 0.0;
-            while x < WorldSize.x {
+            while x < WORLD_SIZE.x {
                 let pos: Vec2d = Vec2d::new(x, y);
                 let vertex: Vertex = Vertex::new(pos);
                 grid.push(vertex);
@@ -744,29 +788,7 @@ impl World {
         return grid;
     }
 
-    fn make_starfield() -> Vec<Star> {
-        let mut output = Vec::<Star>::new();
-        let mut rnd = rand::thread_rng();
-        for _ in 0..3000 {
-            let s = Star {
-                pos: Vec2d::new(
-                    rnd.gen_range(0..WorldSize.x as i32) as f32,
-                    rnd.gen_range(0..WorldSize.y as i32) as f32,
-                ),
-                layer: rnd.gen_range(0..=3) as u8,
-            };
-            output.push(s);
-        }
-        output
-    }
-
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
     }
-}
-
-mod tests {
-    use crate::{simulation, vecmath::Vec2d};
-
-    use super::{Entity, Physics};
 }

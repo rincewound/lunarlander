@@ -1,9 +1,7 @@
-use crate::vecmath;
 pub use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
-use sdl2::sys::{SDL_Color, SDL_FPoint, SDL_SetRenderDrawColor, SDL_Vertex};
-use sdl2::ttf;
+use sdl2::sys::{SDL_Color, SDL_FPoint, SDL_Vertex};
 use sdl2::video::Window;
 use sdl2::{pixels::Color, render::Texture};
 use std::path::Path;
@@ -37,94 +35,73 @@ pub fn neon_draw_line(
     color: Color,
     neon_tex: &Texture,
 ) -> Result<(), String> {
-    // We calculate a rectangle that is wider than the line and will be
-    // filled with a neon texture:
-    const width: f32 = 6.0f32;
-    let line_dir = (to.clone() - from.clone()).normalized();
-    let rotPlus90 = TransformationMatrix::rotate(std::f32::consts::FRAC_PI_2);
-    let rotMinus90 = TransformationMatrix::rotate(-std::f32::consts::FRAC_PI_2);
-
-    let toUpperPoint = rotPlus90.transform(&line_dir) * width;
-    let toLowerPoint = rotMinus90.transform(&line_dir) * width;
-
-    let p0 = from.clone() + toUpperPoint;
-    let p1 = to.clone() + toUpperPoint;
-    let p2 = to.clone() + toLowerPoint;
-    let p3 = from.clone() + toLowerPoint;
-
     let mut outer_color = color.clone();
-    outer_color.a = (color.a as f32 / 1.25) as u8;
-    outer_color.r = (color.r as f32 / 1.25) as u8;
-    outer_color.g = (color.g as f32 / 1.25) as u8;
-    outer_color.b = (color.b as f32 / 1.25) as u8;
+    outer_color.a = (color.a as f32 / 1.15) as u8;
+    outer_color.r = (color.r as f32 / 1.15) as u8;
+    outer_color.g = (color.g as f32 / 1.15) as u8;
+    outer_color.b = (color.b as f32 / 1.15) as u8;
 
-    canvas.set_draw_color(outer_color);
+    let mut width: f32 = 16.0f32;
+    for i in 0..2 {
+        // We calculate a rectangle that is wider than the line and will be
+        // filled with a neon texture:
+        width = width / 2.0f32;
 
-    unsafe {
-        let renderer = canvas.raw();
-        let vertices1: [SDL_Vertex; 3] = [
-            make_vertex(&p0, &Vec2d::new(0.0f32, 0.0f32), &outer_color),
-            make_vertex(&p1, &Vec2d::new(1.0f32, 0.0f32), &outer_color),
-            make_vertex(&p2, &Vec2d::new(1.0f32, 1.0f32), &outer_color),
-        ];
+        let line_dir = (to.clone() - from.clone()).normalized();
+        let rot_plus_90 = TransformationMatrix::rotate(std::f32::consts::FRAC_PI_2);
+        let rot_minus_90 = TransformationMatrix::rotate(-std::f32::consts::FRAC_PI_2);
 
-        let vertices2: [SDL_Vertex; 3] = [
-            make_vertex(&p0, &Vec2d::new(0.0f32, 0.0f32), &outer_color),
-            make_vertex(&p2, &Vec2d::new(1.0f32, 1.0f32), &outer_color),
-            make_vertex(&p3, &Vec2d::new(0.0f32, 1.0f32), &outer_color),
-        ];
+        let to_upper_point = rot_plus_90.transform(&line_dir) * width;
+        let to_lower_point = rot_minus_90.transform(&line_dir) * width;
 
-        sdl2::sys::SDL_SetRenderDrawColor(renderer, 255, 255, 255, 128);
-        let res = sdl2::sys::SDL_RenderGeometry(
-            renderer,
-            neon_tex.raw(),
-            vertices1.as_ptr(),
-            3,
-            std::ptr::null(),
-            0,
-        );
+        let p0 = from.clone() + to_upper_point;
+        let p1 = to.clone() + to_upper_point;
+        let p2 = to.clone() + to_lower_point;
+        let p3 = from.clone() + to_lower_point;
 
-        let res = sdl2::sys::SDL_RenderGeometry(
-            renderer,
-            neon_tex.raw(),
-            vertices2.as_ptr(),
-            3,
-            std::ptr::null(),
-            0,
-        );
+        canvas.set_draw_color(outer_color);
 
-        //println!("Res is {}", res);
+        unsafe {
+            let renderer = canvas.raw();
+            let vertices1: [SDL_Vertex; 3] = [
+                make_vertex(&p0, &Vec2d::new(0.0f32, 0.0f32), &outer_color),
+                make_vertex(&p1, &Vec2d::new(1.0f32, 0.0f32), &outer_color),
+                make_vertex(&p2, &Vec2d::new(1.0f32, 1.0f32), &outer_color),
+            ];
 
-        //sdl2::sys::SDL_RenderDrawLine(renderer, p0.x as i32, p0.y as i32, p1.x as i32, p1.y as i32);
+            let vertices2: [SDL_Vertex; 3] = [
+                make_vertex(&p0, &Vec2d::new(0.0f32, 0.0f32), &outer_color),
+                make_vertex(&p2, &Vec2d::new(1.0f32, 1.0f32), &outer_color),
+                make_vertex(&p3, &Vec2d::new(0.0f32, 1.0f32), &outer_color),
+            ];
+
+            sdl2::sys::SDL_SetRenderDrawColor(renderer, 255, 255, 255, 128);
+            let _ = sdl2::sys::SDL_RenderGeometry(
+                renderer,
+                neon_tex.raw(),
+                vertices1.as_ptr(),
+                3,
+                std::ptr::null(),
+                0,
+            );
+
+            let _ = sdl2::sys::SDL_RenderGeometry(
+                renderer,
+                neon_tex.raw(),
+                vertices2.as_ptr(),
+                3,
+                std::ptr::null(),
+                0,
+            );
+        }
     }
 
-    // let _ = canvas.draw_line(
-    //     Point::new(p0.x as i32, p0.y as i32),
-    //     Point::new(p1.x as i32, p1.y as i32),
-    // );
-
-    // let _ = canvas.draw_line(
-    //     Point::new(p1.x as i32, p1.y as i32),
-    //     Point::new(p2.x as i32, p2.y as i32),
-    // );
-    // let _ = canvas.draw_line(
-    //     Point::new(p2.x as i32, p2.y as i32),
-    //     Point::new(p3.x as i32, p3.y as i32),
-    // );
-
-    // let _ = canvas.draw_line(
-    //     Point::new(p3.x as i32, p3.y as i32),
-    //     Point::new(p0.x as i32, p0.y as i32),
-    // );
-
-    canvas.set_draw_color(color);
+    canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
     // At last: draw center Line
     return canvas.draw_line(
         Point::new(from.x as i32, from.y as i32),
         Point::new(to.x as i32, to.y as i32),
     );
-
-    Ok(())
 }
 
 pub fn draw_line(
