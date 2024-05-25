@@ -552,7 +552,7 @@ impl World {
             let en = &self.enemies[i];
             let ty = &en.ty;
             match ty {
-                EnemyType::Rect => self.rombus_tick(i),
+                EnemyType::Rect => self.rect_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
             }
         }
@@ -566,6 +566,45 @@ impl World {
         let en = &self.enemies[rombus_id];
         let own_entity = self.get_entity(en.entity_id);
         let new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+        own_entity.acceleration = new_dir;
+        own_entity.direction = new_dir;
+        own_entity.max_velocity = 25.0f32;
+    }
+
+    fn rect_tick(&mut self, rombus_id: usize) {
+        let future_pos;
+        let current_pos;
+        let mut new_dir;
+        {
+            let player_pos = self
+                .get_entity_immutable(self.lander.entity_id)
+                .position
+                .clone();
+            let en = &self.enemies[rombus_id];
+            let own_entity = self.get_entity(en.entity_id);
+            new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+
+            // check if a shot is coming our way, if so reverse direction
+            future_pos = own_entity.position + new_dir * 25f32;
+            current_pos = own_entity.position;
+        }
+
+        for missiles in self.missiles.iter() {
+            let missile_ent = self.get_entity_immutable(missiles.entity_id);
+            let missile_pos = missile_ent.position;
+            let missile_future_pos = missile_pos + missile_ent.direction * 25f32;
+            if let Some(_) = collision::get_line_intersection(
+                current_pos,
+                future_pos,
+                missile_pos,
+                missile_future_pos,
+            ) {
+                new_dir = new_dir * -1f32;
+            }
+        }
+
+        let en = &self.enemies[rombus_id];
+        let own_entity = self.get_entity(en.entity_id);
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
         own_entity.max_velocity = 25.0f32;
