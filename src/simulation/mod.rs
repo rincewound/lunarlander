@@ -122,6 +122,7 @@ const WORLD_SIZE: Vec2d = Vec2d {
     y: 1.0 * 600.0,
 };
 
+const GRID_DISTANCE: f32 = 20.0;
 pub struct Vertex {
     main_position: Vec2d,
     positoin: Vec2d,
@@ -424,9 +425,9 @@ impl World {
 
         //self.render_starfield(canvas, textures);
         //self.render_asteroids(screen_space_transform, canvas);
-        self.render_enemies(canvas, screen_space_transform, textures);
+        self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
-        self.render_grid(canvas, screen_space_transform);
+        self.render_enemies(canvas, screen_space_transform, textures);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -748,8 +749,8 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         screen_space_transform: TransformationMatrix,
     ) {
-        let row_count = (WORLD_SIZE.x / 20.0) as usize;
-        let col_count = (WORLD_SIZE.y / 20.0) as usize;
+        let row_count: usize = ((WORLD_SIZE.x / GRID_DISTANCE) + 1.0) as usize;
+        let col_count = ((WORLD_SIZE.y / GRID_DISTANCE) + 1.0) as usize;
 
         //draw horizontal
         let mut current_row: usize = 0;
@@ -787,17 +788,16 @@ impl World {
     fn make_grid() -> Vec<Vertex> {
         let mut grid: Vec<Vertex> = Vec::new();
 
-        let offset = 20.0;
         let mut y = 0.0;
-        while y < WORLD_SIZE.y {
+        while y < WORLD_SIZE.y + 1.0 {
             let mut x = 0.0;
-            while x < WORLD_SIZE.x {
+            while x < WORLD_SIZE.x + 1.0 {
                 let pos: Vec2d = Vec2d::new(x, y);
                 let vertex: Vertex = Vertex::new(pos);
                 grid.push(vertex);
-                x += offset;
+                x += GRID_DISTANCE;
             }
-            y += offset;
+            y += GRID_DISTANCE;
         }
         return grid;
     }
