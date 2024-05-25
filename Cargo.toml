@@ -11,6 +11,6 @@ geo ="0.25.0"
 rodio="0.17.1"
 
 [dependencies.sdl2]
-version = "0.35"
+version = "0.36"
 default-features = false
 features = ["ttf", "image"]

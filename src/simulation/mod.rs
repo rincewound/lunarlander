@@ -365,7 +365,6 @@ impl World {
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
         self.render_starfield(canvas, textures);
-        //self.render_asteroids(screen_space_transform, canvas);
         self.render_starship(lander_entity, screen_space_transform, canvas);
         self.render_missiles(screen_space_transform, canvas);
 
