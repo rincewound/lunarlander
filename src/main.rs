@@ -71,12 +71,15 @@ pub fn main() -> Result<(), String> {
                         println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
+                                Keycode::W => sim.shoot(DirectionKey::Up, true),
+                                Keycode::S => sim.shoot(DirectionKey::Down, true),
+                                Keycode::A => sim.shoot(DirectionKey::Left, true),
+                                Keycode::D => sim.shoot(DirectionKey::Right, true),
                                 Keycode::Up => sim.direction_toggle(DirectionKey::Up, true),
                                 Keycode::Down => sim.direction_toggle(DirectionKey::Down, true),
                                 Keycode::Left => sim.direction_toggle(DirectionKey::Left, true),
                                 Keycode::Right => sim.direction_toggle(DirectionKey::Right, true),
-                                Keycode::Space => sim.shoot(),
-                                Keycode::S => sim.toggle_background_music(),
+                                Keycode::M => sim.toggle_background_music(),
                                 _ => continue,
                             },
                             None => continue,
@@ -90,6 +93,10 @@ pub fn main() -> Result<(), String> {
                         println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
+                                Keycode::W => sim.shoot(DirectionKey::Up, false),
+                                Keycode::S => sim.shoot(DirectionKey::Down, false),
+                                Keycode::A => sim.shoot(DirectionKey::Left, false),
+                                Keycode::D => sim.shoot(DirectionKey::Right, false),
                                 Keycode::Up => sim.direction_toggle(DirectionKey::Up, false),
                                 Keycode::Down => sim.direction_toggle(DirectionKey::Down, false),
                                 Keycode::Left => sim.direction_toggle(DirectionKey::Left, false),
