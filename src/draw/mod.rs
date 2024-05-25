@@ -93,7 +93,7 @@ pub fn neon_draw_line(
             0,
         );
 
-        println!("Res is {}", res);
+        //println!("Res is {}", res);
 
         //sdl2::sys::SDL_RenderDrawLine(renderer, p0.x as i32, p0.y as i32, p1.x as i32, p1.y as i32);
     }

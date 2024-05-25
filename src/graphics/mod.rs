@@ -10,6 +10,25 @@ pub const StarShip: [Vec2d; 4] = [
 ];
 
 pub const LanderScale: Vec2d = Vec2d::new(15.0, 15.0);
+pub const LanderColor: Color = Color::RGBA(255, 255, 188, 255);
+
+pub const RectEnemy: [Vec2d; 4] = [
+    Vec2d::new(1.0, 1.0),
+    Vec2d::new(-1.0, 1.0),
+    Vec2d::new(-1.0, -1.0),
+    Vec2d::new(1.0, -1.0),
+];
+
+pub const RectEnemyColor: Color = Color::RGBA(255, 0, 0, 255);
+
+pub const RombusEnemy: [Vec2d; 4] = [
+    Vec2d::new(2.0, 0.0),
+    Vec2d::new(0.0, 1.0),
+    Vec2d::new(-2.0, 0.0),
+    Vec2d::new(0.0, -1.0),
+];
+
+pub const RombusEnemyColor: Color = Color::RGBA(255, 255, 0, 255);
 
 pub const FlameA: [Vec2d; 3] = [
     Vec2d::new(-0.5, -1.5),

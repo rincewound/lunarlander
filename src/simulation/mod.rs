@@ -10,7 +10,7 @@ use sdl2::render::{BlendMode, Texture};
 
 use crate::asteroids::{self, MAX_SCALE};
 use crate::draw::draw_lines;
-use crate::graphics::{self, render_game_over, render_won_text};
+use crate::graphics::{self, render_game_over, render_won_text, LanderColor};
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
@@ -63,6 +63,17 @@ pub struct Missile {
     time_to_live: f32, // in seconds
 }
 
+#[derive(Clone, Copy)]
+enum EnemyType {
+    Rect,
+    Rombus,
+}
+
+pub struct Enemy {
+    entity_id: usize,
+    ty: EnemyType,
+}
+
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -80,6 +91,7 @@ pub struct World {
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
+    enemies: Vec<Enemy>,
     starfield: Vec<Star>,
     lander: Lander,
     asteroids: Vec<Asteroid>,
@@ -246,6 +258,7 @@ impl World {
             p: Physics::default(),
             entities: vec![lander_entity],
             lander,
+            enemies: Vec::new(),
             asteroids: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
@@ -333,6 +346,7 @@ impl World {
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
+        self.enemy_tick(time_in_ms);
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -475,6 +489,34 @@ impl World {
         }
     }
 
+    fn enemy_tick(&mut self, time_in_ms: f32) {
+        // for en in self.enemies.iter() {
+        //     match en.ty {
+        //         EnemyType::Rect => todo!(),
+        //         EnemyType::Rombus => self.rombus_tick(en.entity_id),
+        //     }
+        // }
+        for i in 0..self.enemies.len() {
+            let en = &self.enemies[i];
+            let ty = &en.ty;
+            match ty {
+                EnemyType::Rect => todo!(),
+                EnemyType::Rombus => self.rombus_tick(i),
+            }
+        }
+    }
+
+    fn rombus_tick(&mut self, rombus_id: usize) {
+        let player_pos = self
+            .get_entity_immutable(self.lander.entity_id)
+            .position
+            .clone();
+        let en = &self.enemies[rombus_id];
+        let mut own_entity = self.get_entity(en.entity_id);
+        let new_dir = (player_pos - own_entity.position).normalized();
+        own_entity.direction = new_dir;
+    }
+
     fn do_collision_detection(&mut self) {
         let id = self.lander.entity_id;
         let lander_entity = self.get_entity_immutable(id);
@@ -553,13 +595,12 @@ impl World {
         let entity_trans = lander_entity.get_screenspace_transform(screen_space_transform);
         // fix orientation of lander and rotate 90 deg
         let offset = vecmath::TransformationMatrix::rotate(PI / 2.0);
-        let transform = entity_trans * scale * offset;
+        let transform = entity_trans * scale; // * offset;
         let items = [&graphics::StarShip];
         let texture = textures.get("neon").unwrap();
         for lander_part in items.iter() {
             let geometry = transform.transform_many(&lander_part.to_vec());
-            draw::neon_draw_lines(canvas, &geometry, Color::RGB(128, 255, 255), true, texture)
-                .unwrap();
+            draw::neon_draw_lines(canvas, &geometry, LanderColor, true, texture).unwrap();
         }
 
         if self.lander.drive_enabled {
