@@ -351,12 +351,12 @@ impl World {
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
         let mut lander_entity = self.get_entity(self.lander.entity_id);
-        if lander_entity.acceleration.len() < 0.01 {
-            //lander_entity.set_acceleration(lander_entity.direction * -1.0);
+        if lander_entity.acceleration.len() < 0.01 && lander_entity.direction.len() > 0.0 {
+            let sim_time_in_seconds = time_in_ms / 1000.0;
+            let break_fragment =
+                lander_entity.direction.normalized() * 2.0 * MAX_ACCELERATION * sim_time_in_seconds;
+            lander_entity.direction = lander_entity.direction - break_fragment;
         }
-        //entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
-        // if the drive is still enabled and we changed the angle we must update the thrust
-        //self.thrust_toggle(self.lander.drive_enabled);
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -440,20 +440,6 @@ impl World {
         self.screen_size.y = height;
     }
 
-    pub(crate) fn thrust_toggle(&mut self, enable: bool) {
-        if self.game_state != State::Running {
-            return;
-        }
-        let entity = self.get_entity(self.lander.entity_id);
-        if enable {
-            let thrust_dir = Vec2d::from_angle(entity.angle);
-            entity.set_acceleration(thrust_dir * -5.0);
-            // self.sound.accelerate();
-        } else {
-            entity.set_acceleration(Vec2d::default());
-        }
-    }
-
     pub(crate) fn direction_toggle(&mut self, dir: DirectionKey, enable: bool) {
         if self.game_state != State::Running {
             return;
@@ -466,7 +452,7 @@ impl World {
             DirectionKey::Right => Vec2d::new(1.0, 0.0),
         };
         // set direction based on toggled keys
-        let new_dir = if enable { dir_vec } else { dir_vec };
+        let new_dir = if enable { dir_vec } else { Vec2d::default() };
         entity.set_acceleration(new_dir * MAX_ACCELERATION);
         if new_dir.len() > 0.0 {
             //self.lander.drive_enabled = enable;
