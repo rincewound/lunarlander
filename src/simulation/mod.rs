@@ -103,6 +103,7 @@ pub struct World {
     next_entity_id: usize,
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
+    grid: Vec<Vertex>,
     enemies: Vec<Enemy<'static>>,
     lander: Lander,
     hud: hud::Hud,
@@ -114,6 +115,25 @@ pub struct World {
     screen_size: Vec2d,
     sound: sound::Sound,
     whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
+}
+
+const WORLD_SIZE: Vec2d = Vec2d {
+    x: 1.0 * 800.0,
+    y: 1.0 * 600.0,
+};
+
+pub struct Vertex {
+    main_position: Vec2d,
+    positoin: Vec2d,
+}
+
+impl Vertex {
+    pub fn new(pos: Vec2d) -> Self {
+        Self {
+            positoin: pos,
+            main_position: pos,
+        }
+    }
 }
 
 impl Missile {
@@ -177,11 +197,6 @@ impl Entity {
         return self.direction.len();
     }
 }
-
-const WORLD_SIZE: Vec2d = Vec2d {
-    x: 1.0 * 800.0,
-    y: 1.0 * 600.0,
-};
 
 impl Physics {
     pub fn default() -> Self {
@@ -277,6 +292,7 @@ impl World {
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
+            grid: Self::make_grid(),
             score: 0,
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
@@ -411,6 +427,7 @@ impl World {
         //self.render_asteroids(screen_space_transform, canvas);
         self.render_enemies(canvas, screen_space_transform, textures);
         self.render_world_border(canvas, screen_space_transform);
+        self.render_grid(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -718,10 +735,69 @@ impl World {
         bot_left = screen_space_transform.transform(&bot_left);
         bot_right = screen_space_transform.transform(&bot_right);
 
-        let _ = draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
-        let _ = draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
-        let _ = draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
-        let _ = draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
+        draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
+        draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
+        draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
+        draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
+    }
+
+    fn render_grid(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+    ) {
+        let row_count = (WORLD_SIZE.x / 20.0) as usize;
+        let col_count = (WORLD_SIZE.y / 20.0) as usize;
+
+        //draw horizontal
+        let mut current_row: usize = 0;
+        let mut j: usize = 0;
+        while j < col_count {
+            let mut i: usize = 0;
+            while i < (row_count - 1) {
+                let p1 = screen_space_transform
+                    .transform(&self.grid[i + (current_row * row_count)].positoin);
+                let p2: Vec2d = screen_space_transform
+                    .transform(&self.grid[i + 1 + (current_row * row_count)].positoin);
+                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                i += 1;
+            }
+            j += 1;
+            current_row += 1;
+        }
+
+        //draw vertical
+        let mut current_col: usize = 0;
+        while current_col < row_count {
+            let mut i: usize = 0;
+            while i < (col_count - 1) {
+                let p1 = screen_space_transform
+                    .transform(&self.grid[i * row_count + current_col].positoin);
+                let p2: Vec2d = screen_space_transform
+                    .transform(&self.grid[(i + 1) * row_count + current_col].positoin);
+                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                i += 1;
+            }
+            current_col += 1;
+        }
+    }
+
+    fn make_grid() -> Vec<Vertex> {
+        let mut grid: Vec<Vertex> = Vec::new();
+
+        let offset = 20.0;
+        let mut y = 0.0;
+        while y < WORLD_SIZE.y {
+            let mut x = 0.0;
+            while x < WORLD_SIZE.x {
+                let pos: Vec2d = Vec2d::new(x, y);
+                let vertex: Vertex = Vertex::new(pos);
+                grid.push(vertex);
+                x += offset;
+            }
+            y += offset;
+        }
+        return grid;
     }
 
     pub fn toggle_background_music(&mut self) {
