@@ -236,7 +236,7 @@ impl World {
         lander_entity.max_velocity = VELOCITY_SPACESHIP;
         lander_entity.border_behavior = BorderBehavior::BounceSlowdown;
 
-        let mut w = World {
+        let w = World {
             next_entity_id: 1,
             p: Physics::default(),
             entities: vec![lander_entity],
@@ -257,57 +257,7 @@ impl World {
             whiteout_frames: 0,
         };
 
-        w.init_asteroids(25);
         w
-    }
-
-    fn init_asteroids(&mut self, count: usize) {
-        for _ in 1..=count {
-            let pos = Vec2d::random(0.0, WorldSize.x, 0.0, WorldSize.y);
-            let dir = Vec2d::random(-15.0, 15.0, -15.0, 15.0);
-            self.create_asteroid(pos, dir, MAX_SCALE);
-        }
-    }
-
-    fn create_asteroid(&mut self, pos: Vec2d, dir: Vec2d, scale: usize) {
-        let id = self.create_entity();
-        let ent = self.get_entity(id);
-        ent.set_position(pos);
-        ent.set_direction(dir);
-        ent.max_velocity = VELOCITY_ASTEROID;
-        ent.border_behavior = BorderBehavior::Bounce;
-        self.asteroids.push(Asteroid::new(id, scale));
-    }
-
-    /// do not modify the asteroids array
-    fn split_asteroids(&mut self, asteroids: &Vec<Asteroid>) -> Vec<Asteroid> {
-        let mut rng = rand::thread_rng();
-        asteroids
-            .iter()
-            .map(|ast| {
-                let new_ids: Vec<_> = (0..rng.gen_range(2..=3))
-                    .map(|_| {
-                        let old_position;
-                        {
-                            let old_entity = self.get_entity_immutable(ast.entity_id);
-                            old_position = old_entity.position;
-                        }
-                        let entity_id = self.create_entity();
-                        let entity = self.get_entity(entity_id);
-                        entity.set_position(old_position);
-                        entity.set_direction(
-                            Vec2d::from_angle(rng.gen_range(0.0..(2.0 * PI)))
-                                * ((MAX_SCALE + 1 - ast.get_scale()) as f32 * 40.0),
-                        );
-                        entity.max_velocity = VELOCITY_ASTEROID;
-                        entity.border_behavior = BorderBehavior::Bounce;
-                        entity_id
-                    })
-                    .collect();
-                ast.split(new_ids)
-            })
-            .flatten()
-            .collect()
     }
 
     pub fn create_entity(&mut self) -> usize {
@@ -372,12 +322,9 @@ impl World {
         let rotation = self.lander.rotation;
         let mut entity = self.get_entity(self.lander.entity_id);
         entity.angle = entity.angle + (180.0 * rotation * (time_in_ms / 1000.0)).to_radians();
-        let starship_pos = entity.position.clone();
-        drop(entity);
         // if the drive is still enabled and we changed the angle we must update the thrust
         self.thrust_toggle(self.lander.drive_enabled);
 
-        self.spawn_asteroids(starship_pos);
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
 
@@ -385,29 +332,6 @@ impl World {
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
         self.sound.play_background_music();
-    }
-
-    fn spawn_asteroids(&mut self, starship_pos: Vec2d) {
-        let len = self.asteroids.len();
-        // if few asteroids are left, we spawn new ones outside of the player's visibility:
-
-        if len < 15 {
-            let start_x = if starship_pos.x > WorldSize.x / 2.0 {
-                WorldSize.x
-            } else {
-                0.0
-            };
-            let start_y = if starship_pos.y > WorldSize.y / 2.0 {
-                WorldSize.y
-            } else {
-                0.0
-            };
-
-            let start_pos = Vec2d::new(start_x, start_y);
-            let start_dir = (starship_pos - start_pos) * 25.0;
-
-            self.create_asteroid(start_pos, start_dir, 4);
-        }
     }
 
     pub(crate) fn render(
@@ -441,7 +365,7 @@ impl World {
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
         self.render_starfield(canvas, textures);
-        self.render_asteroids(screen_space_transform, canvas);
+        //self.render_asteroids(screen_space_transform, canvas);
         self.render_starship(lander_entity, screen_space_transform, canvas);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -456,18 +380,6 @@ impl World {
         }
 
         self.renderHud(canvas);
-    }
-
-    fn render_asteroids(
-        &self,
-        screen_space_transform: TransformationMatrix,
-        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-    ) {
-        for ast in self.asteroids.iter() {
-            let draw_points = ast.get_transformed_hull(self.get_entity_immutable(ast.entity_id));
-            let xformed = screen_space_transform.transform_many(&draw_points);
-            draw::draw_lines(canvas, &xformed, Color::RGB(255, 255, 255), true).unwrap();
-        }
     }
 
     fn render_missiles(
@@ -588,20 +500,6 @@ impl World {
             }
         }
 
-        // cleanup asteroids:
-        let new_asteroids = self
-            .asteroids
-            .clone()
-            .into_iter()
-            .filter(|a| !asteroids_to_delete.contains(&a));
-        let mut new_split_asteroids = self.split_asteroids(&asteroids_to_delete);
-        self.asteroids = new_asteroids.collect();
-        self.asteroids.append(&mut new_split_asteroids);
-        let asteroid_ids_to_delete = asteroids_to_delete
-            .iter()
-            .map(|ast| ast.entity_id)
-            .collect();
-        self.garbage_collect_entities(&asteroid_ids_to_delete);
         let new_missiles = self
             .missiles
             .clone()
@@ -697,35 +595,4 @@ mod tests {
     use crate::{simulation, vecmath::Vec2d};
 
     use super::{Entity, Physics};
-
-    // #[test]
-    // fn can_apply_gravity() {
-    //     let w = Physics {
-    //         gravity: 1.0,
-    //         gravity_direction: Vec2d::new(0.0, -1.0),
-    //     };
-
-    //     let mut e = Entity::default();
-
-    //     let mut v = vec![e];
-
-    //     w.tick(1000.0, 1000.0, &mut v);
-    //     assert_eq!(v[0].position.y, -1.0);
-    // }
-
-    // #[test]
-    // fn can_apply_acceleration() {
-    //     let w = Physics {
-    //         gravity: 1.0,
-    //         gravity_direction: Vec2d::default(),
-    //     };
-
-    //     let mut e = Entity::default();
-    //     e.acceleration = Vec2d::new(1.0, 0.0);
-    //     let mut v = vec![e];
-
-    //     w.tick(1000.0, 1000.0, &mut v);
-    //     assert_eq!(v[0].position.x, 1.0);
-    //     assert_eq!(v[0].direction.x, 1.0);
-    // }
 }
