@@ -438,10 +438,24 @@ impl World {
             DirectionKey::Left => Vec2d::new(-1.0, 0.0),
             DirectionKey::Right => Vec2d::new(1.0, 0.0),
         };
-        if enable {
-            entity.direction = entity.direction + dir_vec;
+        // set direction based on toggled keys
+        let new_dir = if enable {
+            entity.direction + dir_vec
         } else {
-            entity.direction = entity.direction - dir_vec;
+            entity.direction - dir_vec
+        };
+        entity.direction = new_dir;
+        // update the angle based on the last active direction
+        if new_dir.len() > 0.0 {
+            let new_angle = if new_dir.y >= 0.0 {
+                new_dir.angle()
+            } else {
+                new_dir.rotate(PI).angle() + PI
+            };
+            // + pi because drawing is upside down
+            entity.angle = new_angle + PI;
+        } else {
+            // no direction do not change angle
         }
     }
 
