@@ -1,3 +1,4 @@
+use crate::vecmath;
 use sdl2::pixels::Color;
 pub use sdl2::rect::Point;
 use sdl2::rect::Rect;
@@ -6,7 +7,7 @@ use sdl2::ttf;
 use sdl2::video::Window;
 use std::path::Path;
 
-use crate::vecmath::Vec2d;
+use crate::vecmath::{TransformationMatrix, Vec2d};
 
 pub fn neon_draw_line(
     canvas: &mut Canvas<Window>,
@@ -15,6 +16,41 @@ pub fn neon_draw_line(
     color: Color,
 ) -> Result<(), String> {
     canvas.set_draw_color(color);
+
+    // We calculate a rectangle that is wider than the line and will be
+    // filled with a neon texture:
+    const width: f32 = 2.0f32;
+    let line_dir = (to.clone() - from.clone()).normalized();
+    let rotPlus90 = TransformationMatrix::rotate(std::f32::consts::FRAC_PI_2);
+    let rotMinus90 = TransformationMatrix::rotate(-std::f32::consts::FRAC_PI_2);
+
+    let toUpperPoint = rotPlus90.transform(&line_dir) * width;
+    let toLowerPoint = rotMinus90.transform(&line_dir) * width;
+
+    let p0 = from.clone() + toUpperPoint;
+    let p1 = to.clone() + toUpperPoint;
+    let p2 = to.clone() + toLowerPoint;
+    let p3 = from.clone() + toLowerPoint;
+
+    let _ = canvas.draw_line(
+        Point::new(p0.x as i32, p0.y as i32),
+        Point::new(p1.x as i32, p1.y as i32),
+    );
+
+    let _ = canvas.draw_line(
+        Point::new(p1.x as i32, p1.y as i32),
+        Point::new(p2.x as i32, p2.y as i32),
+    );
+    let _ = canvas.draw_line(
+        Point::new(p2.x as i32, p2.y as i32),
+        Point::new(p3.x as i32, p3.y as i32),
+    );
+
+    let _ = canvas.draw_line(
+        Point::new(p3.x as i32, p3.y as i32),
+        Point::new(p0.x as i32, p0.y as i32),
+    );
+
     return canvas.draw_line(
         Point::new(from.x as i32, from.y as i32),
         Point::new(to.x as i32, to.y as i32),
