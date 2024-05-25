@@ -451,16 +451,20 @@ impl World {
             DirectionKey::Left => Vec2d::new(-1.0, 0.0),
             DirectionKey::Right => Vec2d::new(1.0, 0.0),
         };
-        // set direction based on toggled keys
-        let new_dir = if enable { dir_vec } else { Vec2d::default() };
-        entity.set_acceleration(new_dir * MAX_ACCELERATION);
-        if new_dir.len() > 0.0 {
+        let accel_factor = dir_vec * MAX_ACCELERATION;
+        let new_accel = if enable {
+            entity.acceleration + accel_factor
+        } else {
+            entity.acceleration - accel_factor
+        };
+        entity.set_acceleration(new_accel);
+        if new_accel.len() > 0.0 {
             //self.lander.drive_enabled = enable;
 
-            let new_angle = if new_dir.y >= 0.0 {
-                new_dir.angle()
+            let new_angle = if new_accel.y >= 0.0 {
+                new_accel.angle()
             } else {
-                new_dir.rotate(PI).angle() + PI
+                new_accel.rotate(PI).angle() + PI
             };
             // + pi because drawing is upside down
             entity.angle = new_angle + PI;
