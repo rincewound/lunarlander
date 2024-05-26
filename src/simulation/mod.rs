@@ -26,7 +26,7 @@ const VELOCITY_MISSILE: f32 = 120.0;
 const MAX_SHOOT_COOLDOWN: f32 = 0.17;
 const MIN_SHOOT_COOLDOWN: f32 = 0.1;
 
-const NUM_EXPLOSION_FARMES: u32 = 100;
+const NUM_EXPLOSION_FARMES: u32 = 50;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -132,12 +132,23 @@ impl FloatingText {
 pub struct Explosion {
     position: Vec2d,
     frame_count: u32,
+    sparc_dir: Vec<Vec2d>,
 }
+
 impl Explosion {
     fn new(position: Vec2d) -> Self {
+        let mut rnd = rand::thread_rng();
+        let count_sparcs = rnd.gen_range(50..100);
+        let mut init_sparc = Vec::new();
+        for _ in 0..count_sparcs {
+            let new_sparc = Vec2d::from_angle(rnd.gen_range(0.0..360.0));
+            let new_sparc = new_sparc * rnd.gen_range(0.5..2.0);
+            init_sparc.push(new_sparc);
+        }
         Self {
             position: position,
             frame_count: 0,
+            sparc_dir: init_sparc,
         }
     }
 }
@@ -407,7 +418,7 @@ impl World {
 
     fn explosion_tick(&mut self) {
         for exp in &mut self.explosions {
-            exp.frame_count += 1;
+            exp.frame_count += 2;
         }
         self.explosions
             .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
@@ -992,15 +1003,19 @@ impl World {
         screen_space_transform: TransformationMatrix,
         textures: &HashMap<String, Texture<'_>>,
     ) {
+        let texture = textures.get("star").unwrap();
         for exp in &self.explosions {
             let pos = exp.position;
             let pos_screen = screen_space_transform.transform(&pos);
-            let texture = textures.get("star").unwrap();
-            _ = canvas.copy(
-                texture,
-                None,
-                sdl2::rect::Rect::new(pos_screen.x as i32, pos_screen.y as i32, 12, 12),
-            );
+            for sparc_dir in &exp.sparc_dir {
+                let pos_screen = pos_screen + (sparc_dir.clone() * exp.frame_count as f32);
+
+                _ = canvas.copy(
+                    texture,
+                    None,
+                    sdl2::rect::Rect::new(pos_screen.x as i32, pos_screen.y as i32, 12, 12),
+                );
+            }
         }
     }
 
