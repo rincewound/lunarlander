@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 #[allow(dead_code)]
 use rand::Rng;
 
@@ -45,6 +47,16 @@ impl Vec2d {
         let div =
             (n.x.powf(2.0) + n.y.powf(2.0)).sqrt() * (norm.x.powf(2.0) + norm.y.powf(2.0)).sqrt();
         return (dot / div).acos();
+    }
+
+    pub fn angle_360(&self) -> f32 {
+        // this is a workaround because angle does only work for the upper half
+        // e.g. 0 .. 180 deg
+        if self.y >= 0.0 {
+            self.angle()
+        } else {
+            self.rotate(PI).angle() + PI
+        }
     }
 
     pub fn rotate(&self, rel_rot: f32) -> Vec2d {

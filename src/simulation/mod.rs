@@ -390,7 +390,7 @@ impl World {
         entity.acceleration = direction * MAX_ACCELERATION;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
-        entity.angle = direction.angle();
+        entity.angle = direction.angle_360();
         self.missiles.push(Missile::new(id));
     }
 
@@ -566,11 +566,7 @@ impl World {
         };
         entity.set_acceleration(new_accel);
         if new_accel.len() > 0.0 {
-            let new_angle = if new_accel.y >= 0.0 {
-                new_accel.angle()
-            } else {
-                new_accel.rotate(PI).angle() + PI
-            };
+            let new_angle = new_accel.angle_360();
             // + pi because drawing is upside down
             entity.angle = new_angle + PI;
         } else {
@@ -598,9 +594,9 @@ impl World {
         if self.lander.shoot_direction.len() > 0.0 && self.lander.shoot_cooldown_count <= 0.0 {
             self.lander.shoot_cooldown_count = self.lander.shoot_cooldown;
             let id = self.lander.entity_id;
-            let entity = self.get_entity_immutable(id);
-            let position = entity.position;
-            let init_velocity = 40.0 * (entity.velocity() + 1.0);
+            let lander_entity = self.get_entity_immutable(id);
+            let position = lander_entity.position;
+            let init_velocity = 40.0 * (lander_entity.velocity() + 1.0);
             let direction = self.lander.shoot_direction * init_velocity;
             self.sound.shoot();
             self.create_missile(position, direction);
