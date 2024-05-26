@@ -20,8 +20,8 @@ use crate::{
 };
 
 const MAX_ACCELERATION: f32 = 100.0;
-const VELOCITY_SPACESHIP: f32 = 50.0;
-const VELOCITY_MISSILE: f32 = 90.0;
+const VELOCITY_SPACESHIP: f32 = 75.0;
+const VELOCITY_MISSILE: f32 = 120.0;
 
 const MAX_SHOOT_COOLDOWN: f32 = 0.17;
 const MIN_SHOOT_COOLDOWN: f32 = 0.1;
@@ -664,6 +664,7 @@ impl World {
             let epos = self.make_safe_enemy_position();
             let the_entity = self.get_entity(ent);
             the_entity.position = epos;
+            the_entity.border_behavior = BorderBehavior::Bounce;
             self.enemies.push(enemy);
         }
 
