@@ -786,16 +786,13 @@ impl World {
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
                     new_hit_points += enemy.get_score();
-<<<<<<< HEAD
                     if enemy.ty == EnemyType::SpawningRect {
                         minirect_spawns.push(m.entity_id);
                     }
-=======
                     new_texts.push(FloatingText::new(
                         enemy_pos,
                         format!("{}", enemy.get_score()),
                     ));
->>>>>>> 0815710 (add floating texts)
                 }
             }
         }
