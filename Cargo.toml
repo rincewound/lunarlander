@@ -14,3 +14,6 @@ rodio="0.17.1"
 version = "0.36"
 default-features = false
 features = ["ttf", "image"]
+
+[profile.release]
+opt-level = 3

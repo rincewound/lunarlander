@@ -761,9 +761,9 @@ impl World {
     }
 
     fn grid_tick(&mut self) {
-        for i in 0..(self.grid.len()) {
-            self.grid[i].mov();
-            self.grid[i].set_dir_back();
+        for elem in self.grid.iter_mut() {
+            elem.mov();
+            elem.set_dir_back();
         }
     }
 
