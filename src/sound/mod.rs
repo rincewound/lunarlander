@@ -46,9 +46,9 @@ impl Sound {
 
         let mut samples: HashMap<String, Sfx> = HashMap::new();
         let files = [
-            "./assets/sfx_wpn_laser9.wav",
+            "./assets/Fire_homing.wav",
             "./assets/sfx_vehicle_engineloop.wav",
-            "./assets/bg_music.mp3",
+            "./assets/2.mp3",
         ];
 
         for filename in files.iter() {
@@ -72,7 +72,7 @@ impl Sound {
     }
 
     pub fn shoot(&self) {
-        self.play_sample("./assets/sfx_wpn_laser9.wav");
+        self.play_sample("./assets/Fire_homing.wav");
     }
 
     pub fn explode(&self) {
@@ -84,8 +84,7 @@ impl Sound {
     }
 
     pub fn play_background_music(&mut self) {
-        // let file = BufReader::new(File::open("./assets/bg_music.mp3").unwrap());
-        if let Some(snd) = self.samples.get("./assets/bg_music.mp3") {
+        if let Some(snd) = self.samples.get("./assets/2.mp3") {
             if self.bg_music_sink.len() < 10 {
                 self.bg_music_sink.append(snd.decoder());
             }
