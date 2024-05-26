@@ -118,6 +118,8 @@ pub struct World {
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     grid: Vec<Vertex>,
+    grid_tick_count: i32,
+    grid_tick_max: i32,
     enemies: Vec<Enemy<'static>>,
     lander: Lander,
     hud: hud::Hud,
@@ -140,6 +142,7 @@ const GRID_DISTANCE: f32 = 20.0;
 pub struct Vertex {
     main_position: Vec2d,
     positoin: Vec2d,
+    direction: Vec2d,
 }
 
 impl Vertex {
@@ -147,11 +150,38 @@ impl Vertex {
         Self {
             positoin: pos,
             main_position: pos,
+            direction: Vec2d::new(0.0, 0.0),
         }
     }
 
-    pub fn setPosition(&mut self, pos: Vec2d) {
-        self.positoin = pos;
+    pub fn set_direction(&mut self, dir: Vec2d) {
+        self.direction = dir;
+    }
+
+    pub fn mov(&mut self) {
+        self.positoin = self.positoin + self.direction;
+        self.direction = self.direction * 0.5;
+    }
+
+    pub fn add_to_dir(&mut self, dir: Vec2d) {
+        self.direction = self.direction + dir;
+        if (self.direction.len() > 10.0) {
+            self.direction = self.direction.normalized() * 10.0;
+        }
+    }
+
+    pub fn set_dir_back(&mut self) {
+        let dir = (self.main_position - self.positoin);
+        if (dir.len() > 0.01) {
+            let length = dir.len();
+            let mut mult = length / 5.0;
+            if (mult > 1.0) {
+                mult = 1.0;
+            } else if (mult < 0.0) {
+                mult = 0.0;
+            }
+            self.add_to_dir(dir.normalized() * mult * 5.0);
+        }
     }
 }
 
@@ -309,6 +339,8 @@ impl World {
             missiles: vec![],
             grid: Self::make_grid(),
             score: 0,
+            grid_tick_count: 0,
+            grid_tick_max: 10,
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
             screen_shake_strength: 0.0,
@@ -405,6 +437,7 @@ impl World {
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
         //self.enemy_tick(time_in_ms);
+        self.grid_tick();
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -444,6 +477,7 @@ impl World {
 
         //self.render_starfield(canvas, textures);
         //self.render_asteroids(screen_space_transform, canvas);
+
         self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
@@ -562,8 +596,10 @@ impl World {
         let y_off = (y / GRID_DISTANCE) as usize;
         let index = (y_off * num_coll + w_off);
 
-        println!("index = {}, x={}, y={}", index, x, y);
-        grid[index].setPosition(Vec2d::new(0.0, 0.0));
+        let dir = missile_pos - grid[index].positoin;
+        if (dir.len() > 0.01) {
+            grid[index].add_to_dir(dir.normalized() * 15.0);
+        }
     }
     fn make_safe_enemy_position(&self) -> Vec2d {
         loop {
@@ -629,6 +665,13 @@ impl World {
                 EnemyType::Wanderer => self.wanderer_tick(i),
                 _ => {}
             }
+        }
+    }
+
+    fn grid_tick(&mut self) {
+        for i in 0..(self.grid.len()) {
+            self.grid[i].mov();
+            self.grid[i].set_dir_back();
         }
     }
 
