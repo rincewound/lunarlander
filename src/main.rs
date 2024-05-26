@@ -1,16 +1,13 @@
 use sdl2::event::{Event, WindowEvent};
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
-use sdl2::libc::system;
 use sdl2::pixels::Color;
 use sdl2::render::Texture;
 use sdl2::sys::SDL_GetTicks;
 use std::collections::HashMap;
-use std::time::Duration;
 
 use simulation::DirectionKey;
 
-mod asteroids;
 mod collision;
 mod draw;
 mod graphics;
@@ -123,7 +120,6 @@ pub fn main() -> Result<(), String> {
             }
         }
 
-        let timestart = unsafe { SDL_GetTicks() };
         canvas.clear();
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -132,18 +128,6 @@ pub fn main() -> Result<(), String> {
 
         canvas.present();
 
-        let timeend = unsafe { SDL_GetTicks() };
-
-        let rendertime = timeend - timestart;
-
-        // //const tick_freq_nanos: u32 = 1_000_000_000u32 / 30;
-        let frame_time_ms: u32 = 1000 / 60;
-        let sleep_time_ms = frame_time_ms.saturating_sub(rendertime);
-        let sleep_time_nanos = sleep_time_ms * 1000 * 1000;
-        //::std::thread::sleep(Duration::new(0, sleep_time_nanos));
-        if sleep_time_ms < 10 {
-            //println!("render time: {}, sleep time: {}", rendertime, sleep_time_ms);
-        }
         // The rest of the game loop goes here...
         let time_taken = unsafe { SDL_GetTicks() } - loop_time;
         println!("taken {}", time_taken);

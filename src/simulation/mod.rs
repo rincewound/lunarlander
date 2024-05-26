@@ -1,4 +1,4 @@
-use core::{f32, num};
+use core::f32;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -8,9 +8,9 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
-    self, render_game_over, render_won_text, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR,
-    MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
-    WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
+    self, render_game_over, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR, MISSILE,
+    RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY,
+    WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -155,7 +155,6 @@ impl Explosion {
 #[derive(PartialEq)]
 pub enum State {
     Running,
-    Won,
     Lost,
 }
 
@@ -165,8 +164,6 @@ pub struct World {
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     grid: Vec<Vertex>,
-    grid_tick_count: i32,
-    grid_tick_max: i32,
     enemies: Vec<Enemy<'static>>,
     texts: Vec<FloatingText>,
     explosions: Vec<Explosion>,
@@ -203,10 +200,6 @@ impl Vertex {
         }
     }
 
-    pub fn set_direction(&mut self, dir: Vec2d) {
-        self.direction = dir;
-    }
-
     pub fn mov(&mut self) {
         self.positoin = self.positoin + self.direction;
         self.direction = self.direction * 0.5;
@@ -214,19 +207,19 @@ impl Vertex {
 
     pub fn add_to_dir(&mut self, dir: Vec2d) {
         self.direction = self.direction + dir;
-        if (self.direction.len() > 10.0) {
+        if self.direction.len() > 10.0 {
             self.direction = self.direction.normalized() * 10.0;
         }
     }
 
     pub fn set_dir_back(&mut self) {
-        let dir = (self.main_position - self.positoin);
-        if (dir.len() > 0.01) {
+        let dir = self.main_position - self.positoin;
+        if dir.len() > 0.01 {
             let length = dir.len();
             let mut mult = length / 5.0;
-            if (mult > 1.0) {
+            if mult > 1.0 {
                 mult = 1.0;
-            } else if (mult < 0.0) {
+            } else if mult < 0.0 {
                 mult = 0.0;
             }
             self.add_to_dir(dir.normalized() * mult * 5.0);
@@ -278,10 +271,6 @@ impl Entity {
         let pos = vecmath::TransformationMatrix::translation_v(self.position);
         let rot = vecmath::TransformationMatrix::rotate(self.angle);
         return pos * screenspace_transform * rot;
-    }
-
-    pub fn get_id(&self) -> usize {
-        return self.id;
     }
 
     fn velocity(&self) -> f32 {
@@ -393,8 +382,6 @@ impl World {
             missiles: vec![],
             grid: Self::make_grid(),
             score: 0,
-            grid_tick_count: 0,
-            grid_tick_max: 10,
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
             screen_shake_strength: 0.0,
@@ -522,7 +509,6 @@ impl World {
         textures: &HashMap<String, Texture>,
     ) {
         match self.game_state {
-            State::Won => render_won_text(canvas, self.screen_size / 2.0),
             State::Lost => render_game_over(canvas, self.screen_size / 2.0),
             State::Running => (),
         }
@@ -639,8 +625,6 @@ impl World {
             self.create_missile(position, direction);
         }
 
-        for missile in self.missiles.iter_mut() {}
-
         for i in 0..(self.missiles.len()) {
             self.missiles[i].time_to_live -= time_in_ms / 1000.0f32;
 
@@ -655,18 +639,17 @@ impl World {
         let x = missile_pos.x;
         let y = missile_pos.y;
 
-        if (x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y) {
+        if x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y {
             return;
         }
-        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize; //=41
-        let num_rows = (WORLD_SIZE.y / GRID_DISTANCE + 1.0) as usize; //=31
 
+        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize;
         let w_off = (x / GRID_DISTANCE) as usize;
         let y_off = (y / GRID_DISTANCE) as usize;
-        let index = (y_off * num_coll + w_off);
+        let index = y_off * num_coll + w_off;
 
         let dir = missile_pos - grid[index].positoin;
-        if (dir.len() > 0.01) {
+        if dir.len() > 0.01 {
             grid[index].add_to_dir(dir.normalized() * 15.0);
         }
     }
@@ -689,7 +672,7 @@ impl World {
         if self.enemies.len() < 50 {
             let should_spawn = thread_rng().gen_ratio(1, 100);
 
-            if (should_spawn) {
+            if should_spawn {
                 let num_to_spawn = thread_rng().gen_range(2..10);
 
                 for _ in 0..num_to_spawn {

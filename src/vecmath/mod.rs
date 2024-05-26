@@ -43,7 +43,7 @@ impl Vec2d {
         let n = self.normalized();
         let norm = Vec2d::new(1.0, 0.0);
 
-        let dot = (n.x * norm.x + n.y * norm.y);
+        let dot = n.x * norm.x + n.y * norm.y;
         let div =
             (n.x.powf(2.0) + n.y.powf(2.0)).sqrt() * (norm.x.powf(2.0) + norm.y.powf(2.0)).sqrt();
         return (dot / div).acos();
