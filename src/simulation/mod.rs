@@ -647,59 +647,67 @@ impl World {
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
         // check if we have enough enemies:
-        if self.enemies.len() < 10 {
-            let ent = self.create_entity();
-            let enemy;
+        if self.enemies.len() < 50 {
+            let should_spawn = thread_rng().gen_ratio(1, 100);
 
-            let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+            if (should_spawn) {
+                let num_to_spawn = thread_rng().gen_range(2..10);
 
-            match enemy_type {
-                0 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Rombus,
-                        entity_id: ent,
-                        hull: &ROMBUS_ENEMY,
+                for _ in 0..num_to_spawn {
+                    let ent = self.create_entity();
+                    let enemy;
+
+                    let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+
+                    match enemy_type {
+                        0 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Rombus,
+                                entity_id: ent,
+                                hull: &ROMBUS_ENEMY,
+                            }
+                        }
+                        1 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Rect,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        2 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Wanderer,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        3 => {
+                            enemy = Enemy {
+                                ty: EnemyType::SpawningRect,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        4 => {
+                            // We don't spawn minirects directly
+                            enemy = Enemy {
+                                ty: EnemyType::SpawningRect,
+                                entity_id: ent,
+                                hull: &MINIRECT_ENEMY,
+                            }
+                        }
+                        _ => {
+                            panic!("Bad enemy type!");
+                        }
                     }
-                }
-                1 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Rect,
-                        entity_id: ent,
-                        hull: &RECT_ENEMY,
-                    }
-                }
-                2 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Wanderer,
-                        entity_id: ent,
-                        hull: &RECT_ENEMY,
-                    }
-                }
-                3 => {
-                    enemy = Enemy {
-                        ty: EnemyType::SpawningRect,
-                        entity_id: ent,
-                        hull: &RECT_ENEMY,
-                    }
-                }
-                4 => {
-                    // We don't spawn minirects directly
-                    enemy = Enemy {
-                        ty: EnemyType::SpawningRect,
-                        entity_id: ent,
-                        hull: &MINIRECT_ENEMY,
-                    }
-                }
-                _ => {
-                    panic!("Bad enemy type!");
+
+                    let epos = self.make_safe_enemy_position();
+                    let the_entity = self.get_entity(ent);
+                    the_entity.position = epos;
+                    the_entity.border_behavior = BorderBehavior::Bounce;
+                    self.enemies.push(enemy);
                 }
             }
-
-            let epos = self.make_safe_enemy_position();
-            let the_entity = self.get_entity(ent);
-            the_entity.position = epos;
-            the_entity.border_behavior = BorderBehavior::Bounce;
-            self.enemies.push(enemy);
         }
 
         for i in 0..self.enemies.len() {
@@ -739,7 +747,7 @@ impl World {
                 .clone();
             let en = &self.enemies[rombus_id];
             let own_entity = self.get_entity(en.entity_id);
-            new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+            new_dir = (player_pos - own_entity.position).normalized() * 35.0f32;
             current_pos = own_entity.position;
         }
 
@@ -764,7 +772,7 @@ impl World {
         let own_entity = self.get_entity(en.entity_id);
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
-        own_entity.max_velocity = 45.0f32;
+        own_entity.max_velocity = 75.0f32;
     }
 
     fn wanderer_tick(&mut self, i: usize) {
@@ -865,6 +873,7 @@ impl World {
                 let new_ent_id = self.create_entity();
                 let new_ent = self.get_entity(new_ent_id);
                 new_ent.position = spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32;
+                new_ent.border_behavior = BorderBehavior::Bounce;
                 let minirect = Enemy {
                     entity_id: new_ent_id,
                     ty: EnemyType::MiniRect,
