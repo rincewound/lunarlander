@@ -1,30 +1,28 @@
 #![feature(drain_filter)]
 
+use core::f32;
 use std::collections::HashMap;
-use std::{f32::consts::PI, num};
+use std::f32::consts::PI;
 
+use geo::VincentyDistance;
 use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
+use sdl2::rect::Rect;
 use sdl2::render::{BlendMode, Texture};
 
-use crate::asteroids::{self, MAX_SCALE};
-use crate::draw::draw_lines;
 use crate::graphics::{
     self, render_game_over, render_won_text, ENTITY_SCALE, MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR,
-    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
+    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
-    asteroids::Asteroid,
     collision, draw, hud,
     vecmath::{self, Vec2d},
 };
 
 const MAX_ACCELERATION: f32 = 100.0;
 const VELOCITY_SPACESHIP: f32 = 50.0;
-const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
 
 const MAX_SHOOT_COOLDOWN: f32 = 0.17;
@@ -88,6 +86,8 @@ pub struct Missile {
 enum EnemyType {
     Rect,
     Rombus,
+    Wanderer,
+    Invalid,
 }
 
 #[derive(Clone)]
@@ -383,7 +383,7 @@ impl World {
 
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
-        let mut lander_entity = self.get_entity(self.lander.entity_id);
+        let lander_entity = self.get_entity(self.lander.entity_id);
         if lander_entity.acceleration.len() < 0.01 {
             lander_entity.direction = if lander_entity.velocity() > 0.01 {
                 let sim_time_in_seconds = time_in_ms / 1000.0;
@@ -404,7 +404,7 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
-        self.sound.play_background_music();
+        // self.sound.play_background_music();
     }
 
     pub(crate) fn render(
@@ -559,19 +559,35 @@ impl World {
             let ent = self.create_entity();
             let enemy;
 
-            if thread_rng().gen_range(0..100) > 50 {
-                enemy = Enemy {
-                    ty: EnemyType::Rombus,
-                    entity_id: ent,
-                    hull: &ROMBUS_ENEMY,
-                };
-            } else {
-                enemy = Enemy {
-                    ty: EnemyType::Rect,
-                    entity_id: ent,
-                    hull: &RECT_ENEMY,
-                };
+            let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+
+            match enemy_type {
+                0 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Rombus,
+                        entity_id: ent,
+                        hull: &ROMBUS_ENEMY,
+                    }
+                }
+                1 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Rect,
+                        entity_id: ent,
+                        hull: &RECT_ENEMY,
+                    }
+                }
+                2 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Wanderer,
+                        entity_id: ent,
+                        hull: &RECT_ENEMY,
+                    }
+                }
+                _ => {
+                    panic!("Bad enemy type!");
+                }
             }
+
             let epos = self.make_safe_enemy_position();
             let the_entity = self.get_entity(ent);
             the_entity.position = epos;
@@ -584,6 +600,8 @@ impl World {
             match ty {
                 EnemyType::Rect => self.rect_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
+                EnemyType::Wanderer => self.wanderer_tick(i),
+                _ => {}
             }
         }
     }
@@ -621,10 +639,9 @@ impl World {
             // each missile will apply a force on the rect enemy, that
             // is inversely proportional to the distance
             let missile_dist = current_pos - missile_pos;
-            const force_range: f32 = 96f32;
+            const FORCE_RANGE: f32 = 96f32;
             let missile_dist_units = missile_dist.len();
-
-            let relative_force_strength = 1.0f32 - (missile_dist_units / force_range);
+            let relative_force_strength = 1.0f32 - (missile_dist_units / FORCE_RANGE);
 
             if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
                 continue;
@@ -638,6 +655,21 @@ impl World {
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
         own_entity.max_velocity = 25.0f32;
+    }
+
+    fn wanderer_tick(&mut self, i: usize) {
+        let en = &self.enemies[i];
+        let own_entity = self.get_entity(en.entity_id);
+
+        let new_dir = Vec2d {
+            x: thread_rng().gen_range(-1.0..1.0) as f32,
+            y: thread_rng().gen_range(-1.0..1.0) as f32,
+        };
+
+        const MAX_VEL: f32 = 30f32;
+        own_entity.direction = new_dir.normalized() * MAX_VEL;
+        own_entity.acceleration = own_entity.direction * MAX_VEL;
+        own_entity.max_velocity = MAX_VEL;
     }
 
     fn do_collision_detection(&mut self) {
@@ -763,17 +795,22 @@ impl World {
         for enemy in self.enemies.iter() {
             let entity = self.get_entity_immutable(enemy.entity_id);
 
-            let items;
+            let items: &[Vec2d];
             let col;
             match enemy.ty {
                 EnemyType::Rect => {
-                    items = [&RECT_ENEMY];
+                    items = &RECT_ENEMY;
                     col = RECT_ENEMY_COLOR;
                 }
                 EnemyType::Rombus => {
-                    items = [&ROMBUS_ENEMY];
+                    items = &ROMBUS_ENEMY;
                     col = ROMBUS_ENEMY_COLOR;
                 }
+                EnemyType::Wanderer => {
+                    items = &WANDERER_ENEMY;
+                    col = WANDERER_ENEMY_COLOR
+                }
+                EnemyType::Invalid => todo!(),
             }
             let scale = vecmath::TransformationMatrix::scale(
                 graphics::ENTITY_SCALE.x,
@@ -781,10 +818,8 @@ impl World {
             );
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
             let texture = textures.get("neon").unwrap();
-            for parts in items.iter() {
-                let geometry = entity_trans.transform_many(&parts.to_vec());
-                draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
-            }
+            let geometry = entity_trans.transform_many(&items.to_vec());
+            draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
         }
     }
 
