@@ -20,6 +20,10 @@ mod vecmath;
 pub const WINDOW_WIDTH: u32 = 1024;
 pub const WINDOW_HEIGHT: u32 = 768;
 
+fn new_simultaion() -> simulation::World {
+    return simulation::World::new(WINDOW_WIDTH, WINDOW_HEIGHT);
+}
+
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
@@ -39,8 +43,7 @@ pub fn main() -> Result<(), String> {
     canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
 
-    let mut sim = simulation::World::new(WINDOW_WIDTH, WINDOW_HEIGHT);
-
+    let mut sim = new_simultaion();
     let texture_c = canvas.texture_creator();
     let mut star = texture_c.load_texture("./assets/star.png").unwrap();
     star.set_blend_mode(sdl2::render::BlendMode::Add);
@@ -80,6 +83,7 @@ pub fn main() -> Result<(), String> {
                                 Keycode::Left => sim.direction_toggle(DirectionKey::Left, true),
                                 Keycode::Right => sim.direction_toggle(DirectionKey::Right, true),
                                 Keycode::M => sim.toggle_background_music(),
+                                Keycode::R => sim = new_simultaion(),
                                 _ => continue,
                             },
                             None => continue,

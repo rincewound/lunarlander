@@ -374,6 +374,9 @@ impl World {
     }
 
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
+        if self.game_state != State::Running {
+            return;
+        }
         // Do physics (i.e. Gravity & Acceleration) tick
         self.p
             .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
