@@ -61,6 +61,8 @@ pub fn main() -> Result<(), String> {
     texture_dict.insert("neon".to_string(), neon);
     texture_dict.insert("halo".to_string(), halo);
 
+    let mut loop_time = unsafe { SDL_GetTicks() };
+
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -73,7 +75,6 @@ pub fn main() -> Result<(), String> {
                     keycode, repeat, ..
                 } => {
                     if !repeat {
-                        println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
                                 Keycode::W => sim.shoot(DirectionKey::Up, true),
@@ -96,7 +97,6 @@ pub fn main() -> Result<(), String> {
                     keycode, repeat, ..
                 } => {
                     if !repeat {
-                        println!("event: {:?}", { event });
                         match keycode {
                             Some(keycode) => match keycode {
                                 Keycode::W => sim.shoot(DirectionKey::Up, false),
@@ -140,12 +140,15 @@ pub fn main() -> Result<(), String> {
         let frame_time_ms: u32 = 1000 / 60;
         let sleep_time_ms = frame_time_ms.saturating_sub(rendertime);
         let sleep_time_nanos = sleep_time_ms * 1000 * 1000;
-        ::std::thread::sleep(Duration::new(0, sleep_time_nanos));
+        //::std::thread::sleep(Duration::new(0, sleep_time_nanos));
         if sleep_time_ms < 10 {
-            println!("render time: {}, sleep time: {}", rendertime, sleep_time_ms);
+            //println!("render time: {}, sleep time: {}", rendertime, sleep_time_ms);
         }
         // The rest of the game loop goes here...
-        sim.tick(rendertime as f32, 4.0);
+        let time_taken = unsafe { SDL_GetTicks() } - loop_time;
+        println!("taken {}", time_taken);
+        sim.tick(time_taken as f32, 4.0);
+        loop_time = unsafe { SDL_GetTicks() };
     }
 
     Ok(())
