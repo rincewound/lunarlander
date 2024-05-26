@@ -46,9 +46,10 @@ impl Sound {
 
         let mut samples: HashMap<String, Sfx> = HashMap::new();
         let files = [
-            "./assets/Fire_homing.wav",
+            "./assets/Fire_normal.Mp3",
             "./assets/sfx_vehicle_engineloop.wav",
             "./assets/2.mp3",
+            "./assets/Enemy_explode.mp3",
         ];
 
         for filename in files.iter() {
@@ -72,11 +73,11 @@ impl Sound {
     }
 
     pub fn shoot(&self) {
-        self.play_sample("./assets/Fire_homing.wav");
+        self.play_sample("./assets/Fire_normal.mp3");
     }
 
     pub fn explode(&self) {
-        self.play_sample("./assets/sfx_exp_short_hard8.wav");
+        self.play_sample("./assets/Enemy_explode.mp3");
     }
 
     pub fn accelerate(&self) {
