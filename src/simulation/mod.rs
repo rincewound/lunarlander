@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
@@ -110,6 +110,22 @@ impl Enemy<'_> {
     }
 }
 
+#[derive(Clone)]
+pub struct FloatingText {
+    position: Vec2d,
+    time_to_live: f32, // in seconds
+    text: String,
+}
+impl FloatingText {
+    fn new(position: Vec2d, text: String) -> Self {
+        Self {
+            position: position,
+            time_to_live: 1.0,
+            text: text,
+        }
+    }
+}
+
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -124,6 +140,7 @@ pub struct World {
     missiles: Vec<Missile>,
     grid: Vec<Vertex>,
     enemies: Vec<Enemy<'static>>,
+    texts: Vec<FloatingText>,
     lander: Lander,
     hud: hud::Hud,
     game_state: State,
@@ -309,6 +326,7 @@ impl World {
             entities: vec![lander_entity],
             lander,
             enemies: Vec::new(),
+            texts: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
@@ -363,6 +381,13 @@ impl World {
         self.missiles.retain(|m| m.time_to_live > 0.0);
     }
 
+    fn texts_tick(&mut self, time_in_ms: f32) {
+        for txt in self.texts.iter_mut() {
+            txt.time_to_live -= time_in_ms / 1000.0f32;
+        }
+        self.texts.retain(|t| t.time_to_live > 0.0);
+    }
+
     fn entity_id_to_index(&self, id: usize) -> usize {
         let mut idx = 0;
         for e in self.entities.iter() {
@@ -410,6 +435,7 @@ impl World {
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
         self.enemy_tick(time_in_ms);
+        self.texts_tick(time_in_ms);
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -452,6 +478,7 @@ impl World {
         self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
+        self.render_texts(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -730,9 +757,11 @@ impl World {
         let mut minirect_spawns = Vec::<usize>::new();
 
         let mut new_hit_points: u32 = 0;
+        let mut new_texts: Vec<FloatingText> = Vec::new();
         for enemy in self.enemies.iter() {
             // create collidable hull for entity:
             let enemy_ent = self.get_entity_immutable(enemy.entity_id);
+            let enemy_pos = enemy_ent.position;
             let enemy_transform = enemy_ent.get_transform();
             let scale_transform =
                 vecmath::TransformationMatrix::scale(ENTITY_SCALE.x, ENTITY_SCALE.y);
@@ -757,13 +786,21 @@ impl World {
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
                     new_hit_points += enemy.get_score();
+<<<<<<< HEAD
                     if enemy.ty == EnemyType::SpawningRect {
                         minirect_spawns.push(m.entity_id);
                     }
+=======
+                    new_texts.push(FloatingText::new(
+                        enemy_pos,
+                        format!("{}", enemy.get_score()),
+                    ));
+>>>>>>> 0815710 (add floating texts)
                 }
             }
         }
         self.update_score(new_hit_points);
+        self.texts.extend(new_texts);
 
         self.spawn_minirects(minirect_spawns);
 
@@ -920,6 +957,26 @@ impl World {
             let texture = textures.get("neon").unwrap();
             let geometry = entity_trans.transform_many(&items.to_vec());
             draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
+        }
+    }
+
+    fn render_texts(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+    ) {
+        for text_ele in &self.texts {
+            let screen_coordinate = screen_space_transform.transform(&text_ele.position);
+            let screen_coordinate =
+                Point::new(screen_coordinate.x as i32, screen_coordinate.y as i32);
+            draw::draw_text(
+                canvas,
+                &text_ele.text,
+                15,
+                screen_coordinate,
+                Color::RGB(0, 255, 0),
+            )
+            .unwrap();
         }
     }
 
