@@ -404,7 +404,7 @@ impl World {
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
-        self.enemy_tick(time_in_ms);
+        //self.enemy_tick(time_in_ms);
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -555,16 +555,12 @@ impl World {
         if (x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y) {
             return;
         }
-        let num_coll = WORLD_SIZE.x / GRID_DISTANCE + 1.0; //=41
-        let num_rows = WORLD_SIZE.y / GRID_DISTANCE + 1.0; //=31
+        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize; //=41
+        let num_rows = (WORLD_SIZE.y / GRID_DISTANCE + 1.0) as usize; //=31
 
-        let w_off = x / GRID_DISTANCE;
-        let y_off = y / GRID_DISTANCE;
-
-        //let i = (w_off * num_rows);
-        //let j = (y_off * num_cols);
-
-        let index = (y_off * num_coll + w_off) as usize;
+        let w_off = (x / GRID_DISTANCE) as usize;
+        let y_off = (y / GRID_DISTANCE) as usize;
+        let index = (y_off * num_coll + w_off);
 
         println!("index = {}, x={}, y={}", index, x, y);
         grid[index].setPosition(Vec2d::new(0.0, 0.0));
