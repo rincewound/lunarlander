@@ -19,9 +19,9 @@ use crate::{
     vecmath::{self, Vec2d},
 };
 
-const MAX_ACCELERATION: f32 = 2000.0;
+const MAX_ACCELERATION: f32 = 800.0;
 const VELOCITY_SPACESHIP: f32 = 450.0;
-const VELOCITY_MISSILE: f32 = 450.0;
+const VELOCITY_MISSILE: f32 = 800.0;
 
 const MAX_SHOOT_COOLDOWN: f32 = 0.15;
 const MIN_SHOOT_COOLDOWN: f32 = 0.08;
@@ -297,7 +297,7 @@ impl Physics {
             num_ticks = 1;
         }
 
-        println!("Ticks {}", num_ticks);
+        //println!("Ticks {}", num_ticks);
 
         // Apply gravity and acceleration to each entity,
         // Apply resulting speed to position of entity
@@ -478,7 +478,7 @@ impl World {
         //let rotation = self.lander.rotation;
         let lander_entity = self.get_entity(self.lander.entity_id);
         if lander_entity.acceleration.len() < 0.01 {
-            lander_entity.direction = if lander_entity.velocity() > 1.01 {
+            lander_entity.direction = if lander_entity.velocity() > 20.0 {
                 let sim_time_in_seconds = time_in_ms / 1000.0;
                 let break_fragment = lander_entity.direction.normalized()
                     * 8.0
