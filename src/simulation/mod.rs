@@ -26,6 +26,8 @@ const VELOCITY_MISSILE: f32 = 120.0;
 const MAX_SHOOT_COOLDOWN: f32 = 0.17;
 const MIN_SHOOT_COOLDOWN: f32 = 0.1;
 
+const NUM_EXPLOSION_FARMES: u32 = 100;
+
 struct Physics {
     gravity: f32, // force applied per second!
     gravity_direction: Vec2d,
@@ -126,6 +128,19 @@ impl FloatingText {
     }
 }
 
+#[derive(Clone)]
+pub struct Explosion {
+    position: Vec2d,
+    frame_count: u32,
+}
+impl Explosion {
+    fn new(position: Vec2d) -> Self {
+        Self {
+            position: position,
+            frame_count: 0,
+        }
+    }
+}
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -141,6 +156,7 @@ pub struct World {
     grid: Vec<Vertex>,
     enemies: Vec<Enemy<'static>>,
     texts: Vec<FloatingText>,
+    explosions: Vec<Explosion>,
     lander: Lander,
     hud: hud::Hud,
     game_state: State,
@@ -327,6 +343,7 @@ impl World {
             lander,
             enemies: Vec::new(),
             texts: Vec::new(),
+            explosions: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
@@ -388,6 +405,14 @@ impl World {
         self.texts.retain(|t| t.time_to_live > 0.0);
     }
 
+    fn explosion_tick(&mut self) {
+        for exp in &mut self.explosions {
+            exp.frame_count += 1;
+        }
+        self.explosions
+            .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
+    }
+
     fn entity_id_to_index(&self, id: usize) -> usize {
         let mut idx = 0;
         for e in self.entities.iter() {
@@ -436,6 +461,7 @@ impl World {
         self.dismiss_dead_missiles();
         self.enemy_tick(time_in_ms);
         self.texts_tick(time_in_ms);
+        self.explosion_tick();
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -478,6 +504,7 @@ impl World {
         self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
+        self.render_explosions(canvas, screen_space_transform, textures);
         self.render_texts(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
@@ -794,6 +821,7 @@ impl World {
                         enemy_pos,
                         format!("{}", enemy.get_score()),
                     ));
+                    self.explosions.push(Explosion::new(enemy_pos));
                 }
             }
         }
@@ -955,6 +983,24 @@ impl World {
             let texture = textures.get("neon").unwrap();
             let geometry = entity_trans.transform_many(&items.to_vec());
             draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
+        }
+    }
+
+    fn render_explosions(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+        textures: &HashMap<String, Texture<'_>>,
+    ) {
+        for exp in &self.explosions {
+            let pos = exp.position;
+            let pos_screen = screen_space_transform.transform(&pos);
+            let texture = textures.get("star").unwrap();
+            _ = canvas.copy(
+                texture,
+                None,
+                sdl2::rect::Rect::new(pos_screen.x as i32, pos_screen.y as i32, 12, 12),
+            );
         }
     }
 
