@@ -78,7 +78,7 @@ fn max(a: f32, b: f32) -> f32 {
     }
 }
 
-fn get_line_intersection(p1: Vec2d, p2: Vec2d, p3: Vec2d, p4: Vec2d) -> Option<Vec2d> {
+pub fn get_line_intersection(p1: Vec2d, p2: Vec2d, p3: Vec2d, p4: Vec2d) -> Option<Vec2d> {
     let s1_x = p2.x - p1.x;
     let s2_x = p4.x - p3.x;
     let s1_y = p2.y - p1.y;

@@ -1,31 +1,29 @@
-#![feature(drain_filter)]
-
+use core::f32;
 use std::collections::HashMap;
-use std::{f32::consts::PI, num};
+use std::f32::consts::PI;
 
 use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
+use sdl2::rect::Rect;
 use sdl2::render::{BlendMode, Texture};
 
-use crate::asteroids::{self, MAX_SCALE};
-use crate::draw::draw_lines;
 use crate::graphics::{
     self, render_game_over, render_won_text, ENTITY_SCALE, MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR,
-    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
+    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
 use crate::{
-    asteroids::Asteroid,
     collision, draw, hud,
     vecmath::{self, Vec2d},
 };
 
 const MAX_ACCELERATION: f32 = 100.0;
 const VELOCITY_SPACESHIP: f32 = 50.0;
-const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
+
+const MAX_SHOOT_COOLDOWN: f32 = 0.17;
+const MIN_SHOOT_COOLDOWN: f32 = 0.1;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -71,6 +69,8 @@ pub struct Lander {
     entity_id: usize,
     drive_enabled: bool,
     shoot_direction: Vec2d,
+    shoot_cooldown: f32,       // expected cooldown time (sec)
+    shoot_cooldown_count: f32, // current cooldown value (sec)
 }
 
 #[derive(Clone, PartialEq)]
@@ -83,6 +83,8 @@ pub struct Missile {
 enum EnemyType {
     Rect,
     Rombus,
+    Wanderer,
+    Invalid,
 }
 
 #[derive(Clone)]
@@ -90,6 +92,17 @@ pub struct Enemy<'a> {
     entity_id: usize,
     ty: EnemyType,
     hull: &'a [Vec2d],
+}
+
+impl Enemy<'_> {
+    fn get_score(&self) -> u32 {
+        return match self.ty {
+            EnemyType::Invalid => 0,
+            EnemyType::Rombus => 100,
+            EnemyType::Rect => 300,
+            EnemyType::Wanderer => 200,
+        };
+    }
 }
 
 #[derive(PartialEq)]
@@ -173,13 +186,6 @@ impl Entity {
         self.position = position;
     }
 
-    fn set_direction(&mut self, direction: Vec2d) {
-        self.direction = direction;
-    }
-
-    pub fn set_update(&mut self, update: bool) {
-        self.update = update;
-    }
     pub fn get_transform(&self) -> TransformationMatrix {
         let pos = vecmath::TransformationMatrix::translation_v(self.position);
         let rot = vecmath::TransformationMatrix::rotate(self.angle);
@@ -283,6 +289,8 @@ impl World {
             entity_id: 0,
             drive_enabled: false,
             shoot_direction: Vec2d::default(),
+            shoot_cooldown: MAX_SHOOT_COOLDOWN,
+            shoot_cooldown_count: 0.0,
         };
 
         let mut lander_entity = Entity::default(0);
@@ -328,6 +336,7 @@ impl World {
         let entity = self.get_entity(id);
         entity.position = pos;
         entity.direction = direction;
+        entity.acceleration = direction * MAX_ACCELERATION;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
         entity.angle = direction.angle();
@@ -370,13 +379,16 @@ impl World {
     }
 
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
+        if self.game_state != State::Running {
+            return;
+        }
         // Do physics (i.e. Gravity & Acceleration) tick
         self.p
             .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
-        let mut lander_entity = self.get_entity(self.lander.entity_id);
+        let lander_entity = self.get_entity(self.lander.entity_id);
         if lander_entity.acceleration.len() < 0.01 {
             lander_entity.direction = if lander_entity.velocity() > 0.01 {
                 let sim_time_in_seconds = time_in_ms / 1000.0;
@@ -397,7 +409,7 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
-        self.sound.play_background_music();
+        // self.sound.play_background_music();
     }
 
     pub(crate) fn render(
@@ -510,7 +522,11 @@ impl World {
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
-        if self.lander.shoot_direction.len() > 0.0 {
+        if self.lander.shoot_cooldown_count > 0.0 {
+            self.lander.shoot_cooldown_count -= time_in_ms / 1000.0;
+        }
+        if self.lander.shoot_direction.len() > 0.0 && self.lander.shoot_cooldown_count <= 0.0 {
+            self.lander.shoot_cooldown_count = self.lander.shoot_cooldown;
             let id = self.lander.entity_id;
             let entity = self.get_entity_immutable(id);
             let position = entity.position;
@@ -553,6 +569,19 @@ impl World {
         println!("index = {}, x={}, y={}", index, x, y);
         grid[index].setPosition(Vec2d::new(0.0, 0.0));
     }
+    fn make_safe_enemy_position(&self) -> Vec2d {
+        loop {
+            let pos = Vec2d {
+                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
+                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
+            };
+            let id = self.lander.entity_id;
+            let player_pos = self.get_entity_immutable(id).position;
+            if (player_pos - pos).len() > 64f32 {
+                return pos;
+            }
+        }
+    }
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
         // check if we have enough enemies:
@@ -560,24 +589,38 @@ impl World {
             let ent = self.create_entity();
             let enemy;
 
-            if thread_rng().gen_range(0..100) > 50 {
-                enemy = Enemy {
-                    ty: EnemyType::Rombus,
-                    entity_id: ent,
-                    hull: &ROMBUS_ENEMY,
-                };
-            } else {
-                enemy = Enemy {
-                    ty: EnemyType::Rect,
-                    entity_id: ent,
-                    hull: &RECT_ENEMY,
-                };
+            let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+
+            match enemy_type {
+                0 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Rombus,
+                        entity_id: ent,
+                        hull: &ROMBUS_ENEMY,
+                    }
+                }
+                1 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Rect,
+                        entity_id: ent,
+                        hull: &RECT_ENEMY,
+                    }
+                }
+                2 => {
+                    enemy = Enemy {
+                        ty: EnemyType::Wanderer,
+                        entity_id: ent,
+                        hull: &RECT_ENEMY,
+                    }
+                }
+                _ => {
+                    panic!("Bad enemy type!");
+                }
             }
+
+            let epos = self.make_safe_enemy_position();
             let the_entity = self.get_entity(ent);
-            the_entity.position = Vec2d {
-                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
-                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
-            };
+            the_entity.position = epos;
             self.enemies.push(enemy);
         }
 
@@ -585,8 +628,10 @@ impl World {
             let en = &self.enemies[i];
             let ty = &en.ty;
             match ty {
-                EnemyType::Rect => self.rombus_tick(i),
+                EnemyType::Rect => self.rect_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
+                EnemyType::Wanderer => self.wanderer_tick(i),
+                _ => {}
             }
         }
     }
@@ -604,6 +649,59 @@ impl World {
         own_entity.max_velocity = 25.0f32;
     }
 
+    fn rect_tick(&mut self, rombus_id: usize) {
+        let current_pos;
+        let mut new_dir;
+        {
+            let player_pos = self
+                .get_entity_immutable(self.lander.entity_id)
+                .position
+                .clone();
+            let en = &self.enemies[rombus_id];
+            let own_entity = self.get_entity(en.entity_id);
+            new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+            current_pos = own_entity.position;
+        }
+
+        for missiles in self.missiles.iter() {
+            let missile_ent = self.get_entity_immutable(missiles.entity_id);
+            let missile_pos = missile_ent.position;
+            // each missile will apply a force on the rect enemy, that
+            // is inversely proportional to the distance
+            let missile_dist = current_pos - missile_pos;
+            const FORCE_RANGE: f32 = 96f32;
+            let missile_dist_units = missile_dist.len();
+            let relative_force_strength = 1.0f32 - (missile_dist_units / FORCE_RANGE);
+
+            if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
+                continue;
+            }
+
+            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 128f32);
+        }
+
+        let en = &self.enemies[rombus_id];
+        let own_entity = self.get_entity(en.entity_id);
+        own_entity.acceleration = new_dir;
+        own_entity.direction = new_dir;
+        own_entity.max_velocity = 25.0f32;
+    }
+
+    fn wanderer_tick(&mut self, i: usize) {
+        let en = &self.enemies[i];
+        let own_entity = self.get_entity(en.entity_id);
+
+        let new_dir = Vec2d {
+            x: thread_rng().gen_range(-1.0..1.0) as f32,
+            y: thread_rng().gen_range(-1.0..1.0) as f32,
+        };
+
+        const MAX_VEL: f32 = 30f32;
+        own_entity.direction = new_dir.normalized() * MAX_VEL;
+        own_entity.acceleration = own_entity.direction * MAX_VEL;
+        own_entity.max_velocity = MAX_VEL;
+    }
+
     fn do_collision_detection(&mut self) {
         let id = self.lander.entity_id;
         let lander_entity = self.get_entity_immutable(id);
@@ -612,6 +710,7 @@ impl World {
         let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
 
+        let mut new_hit_points: u32 = 0;
         for enemy in self.enemies.iter() {
             // create collidable hull for entity:
             let enemy_ent = self.get_entity_immutable(enemy.entity_id);
@@ -638,10 +737,11 @@ impl World {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
-                    self.score += 100;
+                    new_hit_points += enemy.get_score();
                 }
             }
         }
+        self.update_score(new_hit_points);
 
         let new_missiles = self
             .missiles
@@ -657,6 +757,20 @@ impl World {
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
+    }
+
+    fn update_score(&mut self, hit_points: u32) {
+        let new_score = self.score + hit_points;
+        for (level_score, shoot_cooldown) in vec![
+            (10_000, 0.15),
+            (40_000, 0.13),
+            (100_000, MIN_SHOOT_COOLDOWN),
+        ] {
+            if self.score <= level_score && level_score < new_score {
+                self.lander.shoot_cooldown = shoot_cooldown;
+            }
+        }
+        self.score = new_score;
     }
 
     fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
@@ -727,17 +841,22 @@ impl World {
         for enemy in self.enemies.iter() {
             let entity = self.get_entity_immutable(enemy.entity_id);
 
-            let items;
+            let items: &[Vec2d];
             let col;
             match enemy.ty {
                 EnemyType::Rect => {
-                    items = [&RECT_ENEMY];
+                    items = &RECT_ENEMY;
                     col = RECT_ENEMY_COLOR;
                 }
                 EnemyType::Rombus => {
-                    items = [&ROMBUS_ENEMY];
+                    items = &ROMBUS_ENEMY;
                     col = ROMBUS_ENEMY_COLOR;
                 }
+                EnemyType::Wanderer => {
+                    items = &WANDERER_ENEMY;
+                    col = WANDERER_ENEMY_COLOR
+                }
+                EnemyType::Invalid => todo!(),
             }
             let scale = vecmath::TransformationMatrix::scale(
                 graphics::ENTITY_SCALE.x,
@@ -745,10 +864,8 @@ impl World {
             );
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
             let texture = textures.get("neon").unwrap();
-            for parts in items.iter() {
-                let geometry = entity_trans.transform_many(&parts.to_vec());
-                draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
-            }
+            let geometry = entity_trans.transform_many(&items.to_vec());
+            draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
         }
     }
 
@@ -780,10 +897,10 @@ impl World {
         bot_left = screen_space_transform.transform(&bot_left);
         bot_right = screen_space_transform.transform(&bot_right);
 
-        draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
-        draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
-        draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
-        draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
     }
 
     fn render_grid(
@@ -804,7 +921,7 @@ impl World {
                     .transform(&self.grid[i + (current_row * row_count)].positoin);
                 let p2: Vec2d = screen_space_transform
                     .transform(&self.grid[i + 1 + (current_row * row_count)].positoin);
-                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }
             j += 1;
@@ -820,7 +937,7 @@ impl World {
                     .transform(&self.grid[i * row_count + current_col].positoin);
                 let p2: Vec2d = screen_space_transform
                     .transform(&self.grid[(i + 1) * row_count + current_col].positoin);
-                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }
             current_col += 1;
