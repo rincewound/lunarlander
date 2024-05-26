@@ -147,7 +147,7 @@ pub fn main() -> Result<(), String> {
         // The rest of the game loop goes here...
         let time_taken = unsafe { SDL_GetTicks() } - loop_time;
         println!("taken {}", time_taken);
-        sim.tick(time_taken as f32, 4.0);
+        sim.tick(time_taken as f32, 2.0);
         loop_time = unsafe { SDL_GetTicks() };
     }
 
