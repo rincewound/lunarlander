@@ -1,4 +1,4 @@
-use core::{f32, num};
+use core::f32;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -214,19 +214,19 @@ impl Vertex {
 
     pub fn add_to_dir(&mut self, dir: Vec2d) {
         self.direction = self.direction + dir;
-        if (self.direction.len() > 10.0) {
+        if self.direction.len() > 10.0 {
             self.direction = self.direction.normalized() * 10.0;
         }
     }
 
     pub fn set_dir_back(&mut self) {
         let dir = (self.main_position - self.positoin);
-        if (dir.len() > 0.01) {
+        if dir.len() > 0.01 {
             let length = dir.len();
             let mut mult = length / 5.0;
-            if (mult > 1.0) {
+            if mult > 1.0 {
                 mult = 1.0;
-            } else if (mult < 0.0) {
+            } else if mult < 0.0 {
                 mult = 0.0;
             }
             self.add_to_dir(dir.normalized() * mult * 5.0);
@@ -655,7 +655,7 @@ impl World {
         let x = missile_pos.x;
         let y = missile_pos.y;
 
-        if (x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y) {
+        if x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y {
             return;
         }
         let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize; //=41
@@ -666,7 +666,7 @@ impl World {
         let index = (y_off * num_coll + w_off);
 
         let dir = missile_pos - grid[index].positoin;
-        if (dir.len() > 0.01) {
+        if dir.len() > 0.01 {
             grid[index].add_to_dir(dir.normalized() * 15.0);
         }
     }
@@ -689,7 +689,7 @@ impl World {
         if self.enemies.len() < 50 {
             let should_spawn = thread_rng().gen_ratio(1, 100);
 
-            if (should_spawn) {
+            if should_spawn {
                 let num_to_spawn = thread_rng().gen_range(2..10);
 
                 for _ in 0..num_to_spawn {

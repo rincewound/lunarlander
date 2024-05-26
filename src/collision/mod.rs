@@ -87,7 +87,7 @@ pub fn get_line_intersection(p1: Vec2d, p2: Vec2d, p3: Vec2d, p4: Vec2d) -> Opti
     let s = (-s1_y * (p1.x - p2.x) + s1_x * (p1.y - p3.y)) / (-s2_x * s1_y + s1_x * s2_y);
     let t = (s2_x * (p1.y - p3.y) - s2_y * (p1.x - p3.x)) / (-s2_x * s1_y + s1_x * s2_y);
 
-    if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0) {
+    if s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0 {
         // Collision detected
         return Some(Vec2d::new(p1.x + (t * s1_x), p1.y + (t * s1_y)));
     }

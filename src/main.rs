@@ -1,14 +1,13 @@
 use sdl2::event::{Event, WindowEvent};
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
-use sdl2::libc::system;
 use sdl2::pixels::Color;
-use sdl2::render::Texture;
+use sdl2::render::{Canvas, Texture};
 use sdl2::sys::SDL_GetTicks;
+use sdl2::video::Window;
 use std::collections::HashMap;
-use std::time::Duration;
 
-use simulation::DirectionKey;
+use simulation::{DirectionKey, World};
 
 mod asteroids;
 mod collision;
@@ -27,10 +26,13 @@ fn new_simultaion() -> simulation::World {
 }
 
 pub fn main() -> Result<(), String> {
+    let mut w = WINDOW_WIDTH;
+    let mut h = WINDOW_HEIGHT;
+
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let window = video_subsystem
+    let mut window = video_subsystem
         .window("rust-sdl2 demo: Video", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .resizable()
@@ -38,7 +40,7 @@ pub fn main() -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
 
-    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    let mut canvas: Canvas<Window> = window.into_canvas().build().map_err(|e| e.to_string())?;
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
@@ -77,16 +79,19 @@ pub fn main() -> Result<(), String> {
                     if !repeat {
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::W => sim.shoot(DirectionKey::Up, true),
-                                Keycode::S => sim.shoot(DirectionKey::Down, true),
-                                Keycode::A => sim.shoot(DirectionKey::Left, true),
-                                Keycode::D => sim.shoot(DirectionKey::Right, true),
-                                Keycode::Up => sim.direction_toggle(DirectionKey::Up, true),
-                                Keycode::Down => sim.direction_toggle(DirectionKey::Down, true),
-                                Keycode::Left => sim.direction_toggle(DirectionKey::Left, true),
-                                Keycode::Right => sim.direction_toggle(DirectionKey::Right, true),
+                                Keycode::Up => sim.shoot(DirectionKey::Up, true),
+                                Keycode::Down => sim.shoot(DirectionKey::Down, true),
+                                Keycode::Left => sim.shoot(DirectionKey::Left, true),
+                                Keycode::Right => sim.shoot(DirectionKey::Right, true),
+                                Keycode::W => sim.direction_toggle(DirectionKey::Up, true),
+                                Keycode::S => sim.direction_toggle(DirectionKey::Down, true),
+                                Keycode::A => sim.direction_toggle(DirectionKey::Left, true),
+                                Keycode::D => sim.direction_toggle(DirectionKey::Right, true),
                                 Keycode::M => sim.toggle_background_music(),
-                                Keycode::R => sim = new_simultaion(),
+                                Keycode::R => {
+                                    sim = new_simultaion();
+                                    sim.update_window_size(w as f32, h as f32);
+                                }
                                 _ => continue,
                             },
                             None => continue,
@@ -99,14 +104,14 @@ pub fn main() -> Result<(), String> {
                     if !repeat {
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::W => sim.shoot(DirectionKey::Up, false),
-                                Keycode::S => sim.shoot(DirectionKey::Down, false),
-                                Keycode::A => sim.shoot(DirectionKey::Left, false),
-                                Keycode::D => sim.shoot(DirectionKey::Right, false),
-                                Keycode::Up => sim.direction_toggle(DirectionKey::Up, false),
-                                Keycode::Down => sim.direction_toggle(DirectionKey::Down, false),
-                                Keycode::Left => sim.direction_toggle(DirectionKey::Left, false),
-                                Keycode::Right => sim.direction_toggle(DirectionKey::Right, false),
+                                Keycode::Up => sim.shoot(DirectionKey::Up, false),
+                                Keycode::Down => sim.shoot(DirectionKey::Down, false),
+                                Keycode::Left => sim.shoot(DirectionKey::Left, false),
+                                Keycode::Right => sim.shoot(DirectionKey::Right, false),
+                                Keycode::W => sim.direction_toggle(DirectionKey::Up, false),
+                                Keycode::S => sim.direction_toggle(DirectionKey::Down, false),
+                                Keycode::A => sim.direction_toggle(DirectionKey::Left, false),
+                                Keycode::D => sim.direction_toggle(DirectionKey::Right, false),
                                 _ => continue,
                             },
                             None => continue,
@@ -115,6 +120,8 @@ pub fn main() -> Result<(), String> {
                 }
                 Event::Window { win_event, .. } => match win_event {
                     WindowEvent::SizeChanged(width, height) => {
+                        w = width as u32;
+                        h = height as u32;
                         sim.update_window_size(width as f32, height as f32)
                     }
                     _ => continue,
