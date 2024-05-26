@@ -521,6 +521,20 @@ impl World {
         }
     }
 
+    fn make_safe_enemy_position(&self) -> Vec2d {
+        loop {
+            let pos = Vec2d {
+                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
+                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
+            };
+            let id = self.lander.entity_id;
+            let player_pos = self.get_entity_immutable(id).position;
+            if (player_pos - pos).len() > 64f32 {
+                return pos;
+            }
+        }
+    }
+
     fn enemy_tick(&mut self, time_in_ms: f32) {
         // check if we have enough enemies:
         if self.enemies.len() < 10 {
@@ -540,11 +554,9 @@ impl World {
                     hull: &RECT_ENEMY,
                 };
             }
+            let epos = self.make_safe_enemy_position();
             let the_entity = self.get_entity(ent);
-            the_entity.position = Vec2d {
-                x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
-                y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
-            };
+            the_entity.position = epos;
             self.enemies.push(enemy);
         }
 
@@ -572,7 +584,6 @@ impl World {
     }
 
     fn rect_tick(&mut self, rombus_id: usize) {
-        let future_pos;
         let current_pos;
         let mut new_dir;
         {
@@ -583,9 +594,6 @@ impl World {
             let en = &self.enemies[rombus_id];
             let own_entity = self.get_entity(en.entity_id);
             new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
-
-            // check if a shot is coming our way, if so reverse direction
-            future_pos = own_entity.position + new_dir * 25f32;
             current_pos = own_entity.position;
         }
 
@@ -595,26 +603,16 @@ impl World {
             // each missile will apply a force on the rect enemy, that
             // is inversely proportional to the distance
             let missile_dist = current_pos - missile_pos;
-            const force_range: f32 = 32f32;
-            let relative_force_strength = force_range - (missile_dist.len() / force_range);
+            const force_range: f32 = 96f32;
+            let missile_dist_units = missile_dist.len();
 
-            println!("FC {}, Dst {}", relative_force_strength, missile_dist.len());
+            let relative_force_strength = 1.0f32 - (missile_dist_units / force_range);
 
-            if relative_force_strength > 0.0f32 {
+            if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
                 continue;
             }
 
-            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 32f32);
-
-            //let missile_future_pos = missile_pos + missile_ent.direction * 25f32;
-            // if let Some(_) = collision::get_line_intersection(
-            //     current_pos,
-            //     future_pos,
-            //     missile_pos,
-            //     missile_future_pos,
-            // ) {
-            //     new_dir = new_dir * -1f32;
-            // }
+            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 128f32);
         }
 
         let en = &self.enemies[rombus_id];
