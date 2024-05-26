@@ -136,13 +136,16 @@ pub fn main() -> Result<(), String> {
 
         let rendertime = timeend - timestart;
 
-        //const tick_freq_nanos: u32 = 1_000_000_000u32 / 30;
-        let frame_time_ms: u32 = 1000 / 60;
-        let sleep_time_ms = frame_time_ms.saturating_sub(rendertime);
-        let sleep_time_nanos = sleep_time_ms * 1000 * 1000;
-        ::std::thread::sleep(Duration::new(0, sleep_time_nanos));
+        // //const tick_freq_nanos: u32 = 1_000_000_000u32 / 30;
+        // let frame_time_ms: u32 = 1000 / 60;
+        // let sleep_time_ms = frame_time_ms.saturating_sub(rendertime);
+        // let sleep_time_nanos = sleep_time_ms * 1000 * 1000;
+        // ::std::thread::sleep(Duration::new(0, sleep_time_nanos));
+        // if sleep_time_ms < 10 {
+        //     println!("render time: {}, sleep time: {}", rendertime, sleep_time_ms);
+        // }
         // The rest of the game loop goes here...
-        sim.tick(frame_time_ms as f32, 4.0);
+        sim.tick(rendertime as f32, 4.0);
     }
 
     Ok(())
