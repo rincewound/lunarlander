@@ -183,8 +183,8 @@ pub struct World {
 }
 
 const WORLD_SIZE: Vec2d = Vec2d {
-    x: 2.0 * 800.0,
-    y: 2.0 * 600.0,
+    x: 1.5 * 800.0,
+    y: 1.5 * 600.0,
 };
 
 const GRID_DISTANCE: f32 = 20.0;
