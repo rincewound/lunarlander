@@ -136,6 +136,10 @@ impl Vertex {
             main_position: pos,
         }
     }
+
+    pub fn setPosition(&mut self, pos: Vec2d) {
+        self.positoin = pos;
+    }
 }
 
 impl Missile {
@@ -516,9 +520,38 @@ impl World {
             self.create_missile(position, direction);
         }
 
-        for missile in self.missiles.iter_mut() {
-            missile.time_to_live -= time_in_ms / 1000.0f32;
+        for missile in self.missiles.iter_mut() {}
+
+        for i in 0..(self.missiles.len()) {
+            self.missiles[i].time_to_live -= time_in_ms / 1000.0f32;
+
+            let id = self.missiles[i].entity_id;
+            let entity = self.get_entity_immutable(id);
+            let position = entity.position;
+            Self::intersect_grid(position, &mut self.grid);
         }
+    }
+
+    fn intersect_grid(missile_pos: Vec2d, grid: &mut Vec<Vertex>) {
+        let x = missile_pos.x;
+        let y = missile_pos.y;
+
+        if (x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y) {
+            return;
+        }
+        let num_coll = WORLD_SIZE.x / GRID_DISTANCE + 1.0; //=41
+        let num_rows = WORLD_SIZE.y / GRID_DISTANCE + 1.0; //=31
+
+        let w_off = x / GRID_DISTANCE;
+        let y_off = y / GRID_DISTANCE;
+
+        //let i = (w_off * num_rows);
+        //let j = (y_off * num_cols);
+
+        let index = (y_off * num_coll + w_off) as usize;
+
+        println!("index = {}, x={}, y={}", index, x, y);
+        grid[index].setPosition(Vec2d::new(0.0, 0.0));
     }
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
