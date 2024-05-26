@@ -183,8 +183,8 @@ pub struct World {
 }
 
 const WORLD_SIZE: Vec2d = Vec2d {
-    x: 1.0 * 800.0,
-    y: 1.0 * 600.0,
+    x: 2.0 * 800.0,
+    y: 2.0 * 600.0,
 };
 
 const GRID_DISTANCE: f32 = 20.0;
@@ -675,7 +675,7 @@ impl World {
             };
             let id = self.lander.entity_id;
             let player_pos = self.get_entity_immutable(id).position;
-            if (player_pos - pos).len() > 64f32 {
+            if (player_pos - pos).len() > 300f32 {
                 return pos;
             }
         }
