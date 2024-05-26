@@ -1,10 +1,7 @@
-#![feature(drain_filter)]
-
 use core::f32;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use geo::VincentyDistance;
 use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
@@ -174,13 +171,6 @@ impl Entity {
         self.position = position;
     }
 
-    fn set_direction(&mut self, direction: Vec2d) {
-        self.direction = direction;
-    }
-
-    pub fn set_update(&mut self, update: bool) {
-        self.update = update;
-    }
     pub fn get_transform(&self) -> TransformationMatrix {
         let pos = vecmath::TransformationMatrix::translation_v(self.position);
         let rot = vecmath::TransformationMatrix::rotate(self.angle);
@@ -851,10 +841,10 @@ impl World {
         bot_left = screen_space_transform.transform(&bot_left);
         bot_right = screen_space_transform.transform(&bot_right);
 
-        draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
-        draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
-        draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
-        draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &top_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_left, &bot_left, Color::WHITE);
+        let _ = draw::draw_line(canvas, &top_right, &bot_right, Color::WHITE);
+        let _ = draw::draw_line(canvas, &bot_left, &bot_right, Color::WHITE);
     }
 
     fn render_grid(
@@ -875,7 +865,7 @@ impl World {
                     .transform(&self.grid[i + (current_row * row_count)].positoin);
                 let p2: Vec2d = screen_space_transform
                     .transform(&self.grid[i + 1 + (current_row * row_count)].positoin);
-                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }
             j += 1;
@@ -891,7 +881,7 @@ impl World {
                     .transform(&self.grid[i * row_count + current_col].positoin);
                 let p2: Vec2d = screen_space_transform
                     .transform(&self.grid[(i + 1) * row_count + current_col].positoin);
-                draw::draw_line(canvas, &p1, &p2, Color::BLUE);
+                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }
             current_col += 1;

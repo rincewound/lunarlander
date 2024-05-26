@@ -1,4 +1,8 @@
-use rodio::{source::Source, source::{Buffered, UniformSourceIterator}, Decoder, OutputStream, OutputStreamHandle, Sink};
+use rodio::{
+    source::Source,
+    source::{Buffered, UniformSourceIterator},
+    Decoder, OutputStream, OutputStreamHandle, Sink,
+};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -23,13 +27,18 @@ impl Sound {
     pub fn shoot(&self) {
         let laser_file = BufReader::new(File::open("./assets/sfx_wpn_laser9.wav").unwrap());
         let shoot = Decoder::new(laser_file).unwrap();
-        self.stream_handle.play_raw(shoot.convert_samples()).unwrap();
+        self.stream_handle
+            .play_raw(shoot.convert_samples())
+            .unwrap();
     }
 
     pub fn explode(&self) {
-        let explosion_file = BufReader::new(File::open("./assets/sfx_exp_short_hard8.wav").unwrap());
+        let explosion_file =
+            BufReader::new(File::open("./assets/sfx_exp_short_hard8.wav").unwrap());
         let explode = Decoder::new(explosion_file).unwrap();
-        self.stream_handle.play_raw(explode.convert_samples()).unwrap();
+        self.stream_handle
+            .play_raw(explode.convert_samples())
+            .unwrap();
     }
 
     pub fn accelerate(&self) {

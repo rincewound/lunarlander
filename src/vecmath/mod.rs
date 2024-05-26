@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use rand::Rng;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
