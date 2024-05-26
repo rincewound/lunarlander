@@ -101,19 +101,28 @@ impl Enemy<'_> {
 
     fn rombus_tick(&self, world: &ObjectStore<Entity>, player_pos: Vec2d) {
         let mut ent = world.get_object_clone(self.entity_id);
-        let new_dir = (player_pos - ent.position()).normalized() * 40.0f32;
+        const ROMBUS_VEL: f32 = 120.0f32;
+        let new_dir = (player_pos - ent.position()).normalized() * ROMBUS_VEL;
         ent.set_acceleration(new_dir);
         ent.set_direction(new_dir);
-        ent.set_max_velocity(40.0f32);
+        ent.set_max_velocity(ROMBUS_VEL);
         world.update_object(self.entity_id, ent);
     }
 
     fn rect_tick(&self, world: &ObjectStore<Entity>, player_pos: Vec2d) {
+        let vel = match self.ty {
+            EnemyType::Rect => 80f32,
+            EnemyType::Rombus => todo!(),
+            EnemyType::Wanderer => todo!(),
+            EnemyType::SpawningRect => 70f32,
+            EnemyType::MiniRect => 200f32,
+            EnemyType::Invalid => todo!(),
+        };
         let current_pos;
         let mut new_dir;
         {
             current_pos = world.get_object(self.entity_id).position();
-            new_dir = (player_pos - current_pos).normalized() * 35.0f32;
+            new_dir = (player_pos - current_pos).normalized() * vel;
         }
 
         // for missiles in world.missiles().iter() {
@@ -132,10 +141,11 @@ impl Enemy<'_> {
 
         //     new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 128f32);
         // }
+
         let mut ent = world.get_object_clone(self.entity_id);
         ent.set_acceleration(new_dir);
         ent.set_direction(new_dir);
-        ent.set_max_velocity(75.0f32);
+        ent.set_max_velocity(vel);
         world.update_object(self.entity_id, ent);
     }
 
@@ -146,7 +156,7 @@ impl Enemy<'_> {
             y: thread_rng().gen_range(-1.0..1.0) as f32,
         };
 
-        const MAX_VEL: f32 = 30f32;
+        const MAX_VEL: f32 = 80f32;
         ent.set_direction(new_dir.normalized() * MAX_VEL);
         ent.set_acceleration(ent.direction() * MAX_VEL);
         ent.set_max_velocity(MAX_VEL);
