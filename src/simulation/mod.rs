@@ -94,6 +94,17 @@ pub struct Enemy<'a> {
     hull: &'a [Vec2d],
 }
 
+impl Enemy<'_> {
+    fn get_score(&self) -> u32 {
+        return match self.ty {
+            EnemyType::Invalid => 0,
+            EnemyType::Rombus => 100,
+            EnemyType::Rect => 300,
+            EnemyType::Wanderer => 200,
+        };
+    }
+}
+
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -504,9 +515,6 @@ impl World {
         } else {
             self.lander.shoot_direction - shoot_dir
         };
-        if self.score > 10_000 {
-            self.lander.shoot_cooldown = MIN_SHOOT_COOLDOWN;
-        }
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
@@ -670,6 +678,7 @@ impl World {
         let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
 
+        let mut new_hit_points: u32 = 0;
         for enemy in self.enemies.iter() {
             // create collidable hull for entity:
             let enemy_ent = self.get_entity_immutable(enemy.entity_id);
@@ -696,10 +705,11 @@ impl World {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
-                    self.score += 100;
+                    new_hit_points += enemy.get_score();
                 }
             }
         }
+        self.update_score(new_hit_points);
 
         let new_missiles = self
             .missiles
@@ -715,6 +725,20 @@ impl World {
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
+    }
+
+    fn update_score(&mut self, hit_points: u32) {
+        let new_score = self.score + hit_points;
+        for (level_score, shoot_cooldown) in vec![
+            (10_000, 0.15),
+            (40_000, 0.13),
+            (100_000, MIN_SHOOT_COOLDOWN),
+        ] {
+            if self.score <= level_score && level_score < new_score {
+                self.lander.shoot_cooldown = shoot_cooldown;
+            }
+        }
+        self.score = new_score;
     }
 
     fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
