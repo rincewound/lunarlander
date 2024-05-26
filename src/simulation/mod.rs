@@ -23,8 +23,8 @@ const MAX_ACCELERATION: f32 = 100.0;
 const VELOCITY_SPACESHIP: f32 = 75.0;
 const VELOCITY_MISSILE: f32 = 120.0;
 
-const MAX_SHOOT_COOLDOWN: f32 = 0.17;
-const MIN_SHOOT_COOLDOWN: f32 = 0.1;
+const MAX_SHOOT_COOLDOWN: f32 = 0.15;
+const MIN_SHOOT_COOLDOWN: f32 = 0.08;
 
 const NUM_EXPLOSION_FARMES: u32 = 50;
 
@@ -929,13 +929,11 @@ impl World {
 
     fn update_score(&mut self, hit_points: u32) {
         let new_score = self.score + hit_points;
-        for (level_score, shoot_cooldown) in vec![
-            (10_000, 0.15),
-            (40_000, 0.13),
-            (100_000, MIN_SHOOT_COOLDOWN),
-        ] {
+        const COOLDOWN_STEP: f32 = (MAX_SHOOT_COOLDOWN - MIN_SHOOT_COOLDOWN) / 3.0;
+        for (level_score, shoot_cooldown_idx) in vec![(5_000, 1), (10_000, 2), (15_000, 3)] {
             if self.score <= level_score && level_score < new_score {
-                self.lander.shoot_cooldown = shoot_cooldown;
+                self.lander.shoot_cooldown =
+                    MAX_SHOOT_COOLDOWN - (shoot_cooldown_idx as f32 * COOLDOWN_STEP);
             }
         }
         self.score = new_score;
