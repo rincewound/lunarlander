@@ -592,15 +592,29 @@ impl World {
         for missiles in self.missiles.iter() {
             let missile_ent = self.get_entity_immutable(missiles.entity_id);
             let missile_pos = missile_ent.position;
-            let missile_future_pos = missile_pos + missile_ent.direction * 25f32;
-            if let Some(_) = collision::get_line_intersection(
-                current_pos,
-                future_pos,
-                missile_pos,
-                missile_future_pos,
-            ) {
-                new_dir = new_dir * -1f32;
+            // each missile will apply a force on the rect enemy, that
+            // is inversely proportional to the distance
+            let missile_dist = current_pos - missile_pos;
+            const force_range: f32 = 32f32;
+            let relative_force_strength = force_range - (missile_dist.len() / force_range);
+
+            println!("FC {}, Dst {}", relative_force_strength, missile_dist.len());
+
+            if relative_force_strength > 0.0f32 {
+                continue;
             }
+
+            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 32f32);
+
+            //let missile_future_pos = missile_pos + missile_ent.direction * 25f32;
+            // if let Some(_) = collision::get_line_intersection(
+            //     current_pos,
+            //     future_pos,
+            //     missile_pos,
+            //     missile_future_pos,
+            // ) {
+            //     new_dir = new_dir * -1f32;
+            // }
         }
 
         let en = &self.enemies[rombus_id];
