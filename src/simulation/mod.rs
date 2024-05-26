@@ -466,7 +466,7 @@ impl World {
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
-        // self.sound.play_background_music();
+        self.sound.play_background_music();
     }
 
     pub(crate) fn render(
