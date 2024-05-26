@@ -27,6 +27,9 @@ const VELOCITY_SPACESHIP: f32 = 50.0;
 const VELOCITY_ASTEROID: f32 = 30.0;
 const VELOCITY_MISSILE: f32 = 90.0;
 
+const MAX_SHOOT_COOLDOWN: f32 = 0.17;
+const MIN_SHOOT_COOLDOWN: f32 = 0.1;
+
 struct Physics {
     gravity: f32, // force applied per second!
     gravity_direction: Vec2d,
@@ -71,6 +74,8 @@ pub struct Lander {
     entity_id: usize,
     drive_enabled: bool,
     shoot_direction: Vec2d,
+    shoot_cooldown: f32,       // expected cooldown time (sec)
+    shoot_cooldown_count: f32, // current cooldown value (sec)
 }
 
 #[derive(Clone, PartialEq)]
@@ -279,6 +284,8 @@ impl World {
             entity_id: 0,
             drive_enabled: false,
             shoot_direction: Vec2d::default(),
+            shoot_cooldown: MAX_SHOOT_COOLDOWN,
+            shoot_cooldown_count: 0.0,
         };
 
         let mut lander_entity = Entity::default(0);
@@ -324,6 +331,7 @@ impl World {
         let entity = self.get_entity(id);
         entity.position = pos;
         entity.direction = direction;
+        entity.acceleration = direction * MAX_ACCELERATION;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
         entity.angle = direction.angle();
@@ -503,10 +511,17 @@ impl World {
         } else {
             self.lander.shoot_direction - shoot_dir
         };
+        if self.score > 10_000 {
+            self.lander.shoot_cooldown = MIN_SHOOT_COOLDOWN;
+        }
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
-        if self.lander.shoot_direction.len() > 0.0 {
+        if self.lander.shoot_cooldown_count > 0.0 {
+            self.lander.shoot_cooldown_count -= time_in_ms / 1000.0;
+        }
+        if self.lander.shoot_direction.len() > 0.0 && self.lander.shoot_cooldown_count <= 0.0 {
+            self.lander.shoot_cooldown_count = self.lander.shoot_cooldown;
             let id = self.lander.entity_id;
             let entity = self.get_entity_immutable(id);
             let position = entity.position;
