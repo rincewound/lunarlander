@@ -4,12 +4,13 @@ use std::f32::consts::PI;
 
 use rand::{thread_rng, Rng};
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
-    self, render_game_over, render_won_text, ENTITY_SCALE, MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR,
-    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
+    self, render_game_over, render_won_text, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR,
+    MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
+    WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -19,11 +20,13 @@ use crate::{
 };
 
 const MAX_ACCELERATION: f32 = 100.0;
-const VELOCITY_SPACESHIP: f32 = 50.0;
-const VELOCITY_MISSILE: f32 = 90.0;
+const VELOCITY_SPACESHIP: f32 = 75.0;
+const VELOCITY_MISSILE: f32 = 120.0;
 
 const MAX_SHOOT_COOLDOWN: f32 = 0.17;
 const MIN_SHOOT_COOLDOWN: f32 = 0.1;
+
+const NUM_EXPLOSION_FARMES: u32 = 50;
 
 struct Physics {
     gravity: f32, // force applied per second!
@@ -79,11 +82,13 @@ pub struct Missile {
     time_to_live: f32, // in seconds
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum EnemyType {
     Rect,
     Rombus,
     Wanderer,
+    SpawningRect,
+    MiniRect,
     Invalid,
 }
 
@@ -101,10 +106,52 @@ impl Enemy<'_> {
             EnemyType::Rombus => 100,
             EnemyType::Rect => 300,
             EnemyType::Wanderer => 200,
+            EnemyType::SpawningRect => 200,
+            EnemyType::MiniRect => 50,
         };
     }
 }
 
+#[derive(Clone)]
+pub struct FloatingText {
+    position: Vec2d,
+    time_to_live: f32, // in seconds
+    text: String,
+}
+impl FloatingText {
+    fn new(position: Vec2d, text: String) -> Self {
+        Self {
+            position: position,
+            time_to_live: 1.0,
+            text: text,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Explosion {
+    position: Vec2d,
+    frame_count: u32,
+    sparc_dir: Vec<Vec2d>,
+}
+
+impl Explosion {
+    fn new(position: Vec2d) -> Self {
+        let mut rnd = rand::thread_rng();
+        let count_sparcs = rnd.gen_range(50..100);
+        let mut init_sparc = Vec::new();
+        for _ in 0..count_sparcs {
+            let new_sparc = Vec2d::from_angle(rnd.gen_range(0.0..360.0));
+            let new_sparc = new_sparc * rnd.gen_range(0.5..2.0);
+            init_sparc.push(new_sparc);
+        }
+        Self {
+            position: position,
+            frame_count: 0,
+            sparc_dir: init_sparc,
+        }
+    }
+}
 #[derive(PartialEq)]
 pub enum State {
     Running,
@@ -121,6 +168,8 @@ pub struct World {
     grid_tick_count: i32,
     grid_tick_max: i32,
     enemies: Vec<Enemy<'static>>,
+    texts: Vec<FloatingText>,
+    explosions: Vec<Explosion>,
     lander: Lander,
     hud: hud::Hud,
     game_state: State,
@@ -334,6 +383,8 @@ impl World {
             entities: vec![lander_entity],
             lander,
             enemies: Vec::new(),
+            texts: Vec::new(),
+            explosions: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: vec![],
@@ -371,7 +422,7 @@ impl World {
         entity.acceleration = direction * MAX_ACCELERATION;
         entity.max_velocity = VELOCITY_MISSILE;
         entity.border_behavior = BorderBehavior::Dismiss;
-        entity.angle = direction.angle();
+        entity.angle = direction.angle_360();
         self.missiles.push(Missile::new(id));
     }
 
@@ -388,6 +439,21 @@ impl World {
             .collect();
         self.garbage_collect_entities(&ids_to_remove);
         self.missiles.retain(|m| m.time_to_live > 0.0);
+    }
+
+    fn texts_tick(&mut self, time_in_ms: f32) {
+        for txt in self.texts.iter_mut() {
+            txt.time_to_live -= time_in_ms / 1000.0f32;
+        }
+        self.texts.retain(|t| t.time_to_live > 0.0);
+    }
+
+    fn explosion_tick(&mut self) {
+        for exp in &mut self.explosions {
+            exp.frame_count += 2;
+        }
+        self.explosions
+            .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
     }
 
     fn entity_id_to_index(&self, id: usize) -> usize {
@@ -436,13 +502,15 @@ impl World {
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
-        //self.enemy_tick(time_in_ms);
+        self.enemy_tick(time_in_ms);
+        self.texts_tick(time_in_ms);
+        self.explosion_tick();
         self.grid_tick();
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
-        // self.sound.play_background_music();
+        self.sound.play_background_music();
     }
 
     pub(crate) fn render(
@@ -481,6 +549,8 @@ impl World {
         self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
+        self.render_explosions(canvas, screen_space_transform, textures);
+        self.render_texts(canvas, screen_space_transform);
         self.render_starship(lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
@@ -530,11 +600,7 @@ impl World {
         };
         entity.set_acceleration(new_accel);
         if new_accel.len() > 0.0 {
-            let new_angle = if new_accel.y >= 0.0 {
-                new_accel.angle()
-            } else {
-                new_accel.rotate(PI).angle() + PI
-            };
+            let new_angle = new_accel.angle_360();
             // + pi because drawing is upside down
             entity.angle = new_angle + PI;
         } else {
@@ -562,9 +628,9 @@ impl World {
         if self.lander.shoot_direction.len() > 0.0 && self.lander.shoot_cooldown_count <= 0.0 {
             self.lander.shoot_cooldown_count = self.lander.shoot_cooldown;
             let id = self.lander.entity_id;
-            let entity = self.get_entity_immutable(id);
-            let position = entity.position;
-            let init_velocity = 40.0 * (entity.velocity() + 1.0);
+            let lander_entity = self.get_entity_immutable(id);
+            let position = lander_entity.position;
+            let init_velocity = 40.0 * (lander_entity.velocity() + 1.0);
             let direction = self.lander.shoot_direction * init_velocity;
             self.sound.shoot();
             self.create_missile(position, direction);
@@ -617,43 +683,67 @@ impl World {
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
         // check if we have enough enemies:
-        if self.enemies.len() < 10 {
-            let ent = self.create_entity();
-            let enemy;
+        if self.enemies.len() < 50 {
+            let should_spawn = thread_rng().gen_ratio(1, 100);
 
-            let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+            if (should_spawn) {
+                let num_to_spawn = thread_rng().gen_range(2..10);
 
-            match enemy_type {
-                0 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Rombus,
-                        entity_id: ent,
-                        hull: &ROMBUS_ENEMY,
+                for _ in 0..num_to_spawn {
+                    let ent = self.create_entity();
+                    let enemy;
+
+                    let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+
+                    match enemy_type {
+                        0 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Rombus,
+                                entity_id: ent,
+                                hull: &ROMBUS_ENEMY,
+                            }
+                        }
+                        1 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Rect,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        2 => {
+                            enemy = Enemy {
+                                ty: EnemyType::Wanderer,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        3 => {
+                            enemy = Enemy {
+                                ty: EnemyType::SpawningRect,
+                                entity_id: ent,
+                                hull: &RECT_ENEMY,
+                            }
+                        }
+                        4 => {
+                            // We don't spawn minirects directly
+                            enemy = Enemy {
+                                ty: EnemyType::SpawningRect,
+                                entity_id: ent,
+                                hull: &MINIRECT_ENEMY,
+                            }
+                        }
+                        _ => {
+                            panic!("Bad enemy type!");
+                        }
                     }
-                }
-                1 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Rect,
-                        entity_id: ent,
-                        hull: &RECT_ENEMY,
-                    }
-                }
-                2 => {
-                    enemy = Enemy {
-                        ty: EnemyType::Wanderer,
-                        entity_id: ent,
-                        hull: &RECT_ENEMY,
-                    }
-                }
-                _ => {
-                    panic!("Bad enemy type!");
+
+                    let epos = self.make_safe_enemy_position();
+                    let the_entity = self.get_entity(ent);
+                    the_entity.position = epos;
+                    the_entity.border_behavior = BorderBehavior::Bounce;
+                    self.enemies.push(enemy);
                 }
             }
-
-            let epos = self.make_safe_enemy_position();
-            let the_entity = self.get_entity(ent);
-            the_entity.position = epos;
-            self.enemies.push(enemy);
         }
 
         for i in 0..self.enemies.len() {
@@ -663,6 +753,8 @@ impl World {
                 EnemyType::Rect => self.rect_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
                 EnemyType::Wanderer => self.wanderer_tick(i),
+                EnemyType::SpawningRect => self.rect_tick(i),
+                &EnemyType::MiniRect => self.rect_tick(i),
                 _ => {}
             }
         }
@@ -682,10 +774,10 @@ impl World {
             .clone();
         let en = &self.enemies[rombus_id];
         let own_entity = self.get_entity(en.entity_id);
-        let new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+        let new_dir = (player_pos - own_entity.position).normalized() * 40.0f32;
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
-        own_entity.max_velocity = 25.0f32;
+        own_entity.max_velocity = 40.0f32;
     }
 
     fn rect_tick(&mut self, rombus_id: usize) {
@@ -698,7 +790,7 @@ impl World {
                 .clone();
             let en = &self.enemies[rombus_id];
             let own_entity = self.get_entity(en.entity_id);
-            new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+            new_dir = (player_pos - own_entity.position).normalized() * 35.0f32;
             current_pos = own_entity.position;
         }
 
@@ -723,7 +815,7 @@ impl World {
         let own_entity = self.get_entity(en.entity_id);
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
-        own_entity.max_velocity = 25.0f32;
+        own_entity.max_velocity = 75.0f32;
     }
 
     fn wanderer_tick(&mut self, i: usize) {
@@ -748,11 +840,14 @@ impl World {
 
         let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
+        let mut minirect_spawns = Vec::<usize>::new();
 
         let mut new_hit_points: u32 = 0;
+        let mut new_texts: Vec<FloatingText> = Vec::new();
         for enemy in self.enemies.iter() {
             // create collidable hull for entity:
             let enemy_ent = self.get_entity_immutable(enemy.entity_id);
+            let enemy_pos = enemy_ent.position;
             let enemy_transform = enemy_ent.get_transform();
             let scale_transform =
                 vecmath::TransformationMatrix::scale(ENTITY_SCALE.x, ENTITY_SCALE.y);
@@ -777,10 +872,21 @@ impl World {
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
                     new_hit_points += enemy.get_score();
+                    if enemy.ty == EnemyType::SpawningRect {
+                        minirect_spawns.push(m.entity_id);
+                    }
+                    new_texts.push(FloatingText::new(
+                        enemy_pos,
+                        format!("{}", enemy.get_score()),
+                    ));
+                    self.explosions.push(Explosion::new(enemy_pos));
                 }
             }
         }
         self.update_score(new_hit_points);
+        self.texts.extend(new_texts);
+
+        self.spawn_minirects(minirect_spawns);
 
         let new_missiles = self
             .missiles
@@ -796,6 +902,29 @@ impl World {
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
+    }
+
+    fn spawn_minirects(&mut self, minirect_spawns: Vec<usize>) {
+        for id in minirect_spawns.iter() {
+            let spawnpos;
+            {
+                let entity = self.get_entity_immutable(*id);
+                spawnpos = entity.position;
+            }
+
+            for i in 0..2 {
+                let new_ent_id = self.create_entity();
+                let new_ent = self.get_entity(new_ent_id);
+                new_ent.position = spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32;
+                new_ent.border_behavior = BorderBehavior::Bounce;
+                let minirect = Enemy {
+                    entity_id: new_ent_id,
+                    ty: EnemyType::MiniRect,
+                    hull: &MINIRECT_ENEMY,
+                };
+                self.enemies.push(minirect);
+            }
+        }
     }
 
     fn update_score(&mut self, hit_points: u32) {
@@ -895,6 +1024,14 @@ impl World {
                     items = &WANDERER_ENEMY;
                     col = WANDERER_ENEMY_COLOR
                 }
+                EnemyType::SpawningRect => {
+                    items = &RECT_ENEMY;
+                    col = MINIRECT_ENEMY_COLOR;
+                }
+                EnemyType::MiniRect => {
+                    items = &MINIRECT_ENEMY;
+                    col = MINIRECT_ENEMY_COLOR;
+                }
                 EnemyType::Invalid => todo!(),
             }
             let scale = vecmath::TransformationMatrix::scale(
@@ -905,6 +1042,48 @@ impl World {
             let texture = textures.get("neon").unwrap();
             let geometry = entity_trans.transform_many(&items.to_vec());
             draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
+        }
+    }
+
+    fn render_explosions(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+        textures: &HashMap<String, Texture<'_>>,
+    ) {
+        let texture = textures.get("star").unwrap();
+        for exp in &self.explosions {
+            let pos = exp.position;
+            let pos_screen = screen_space_transform.transform(&pos);
+            for sparc_dir in &exp.sparc_dir {
+                let pos_screen = pos_screen + (sparc_dir.clone() * exp.frame_count as f32);
+
+                _ = canvas.copy(
+                    texture,
+                    None,
+                    sdl2::rect::Rect::new(pos_screen.x as i32, pos_screen.y as i32, 12, 12),
+                );
+            }
+        }
+    }
+
+    fn render_texts(
+        &self,
+        canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+        screen_space_transform: TransformationMatrix,
+    ) {
+        for text_ele in &self.texts {
+            let screen_coordinate = screen_space_transform.transform(&text_ele.position);
+            let screen_coordinate =
+                Point::new(screen_coordinate.x as i32, screen_coordinate.y as i32);
+            draw::draw_text(
+                canvas,
+                &text_ele.text,
+                15,
+                screen_coordinate,
+                Color::RGB(0, 255, 0),
+            )
+            .unwrap();
         }
     }
 
