@@ -8,8 +8,9 @@ use sdl2::rect::Rect;
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
-    self, render_game_over, render_won_text, ENTITY_SCALE, MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR,
-    ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
+    self, render_game_over, render_won_text, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR,
+    MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
+    WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -79,11 +80,13 @@ pub struct Missile {
     time_to_live: f32, // in seconds
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum EnemyType {
     Rect,
     Rombus,
     Wanderer,
+    SpawningRect,
+    MiniRect,
     Invalid,
 }
 
@@ -101,6 +104,8 @@ impl Enemy<'_> {
             EnemyType::Rombus => 100,
             EnemyType::Rect => 300,
             EnemyType::Wanderer => 200,
+            EnemyType::SpawningRect => 200,
+            EnemyType::MiniRect => 50,
         };
     }
 }
@@ -404,7 +409,7 @@ impl World {
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
-        //self.enemy_tick(time_in_ms);
+        self.enemy_tick(time_in_ms);
 
         // Do collision detection, fail if we collided with the environment
         // or a landingpad (in pad case: if velocity was too high)
@@ -609,6 +614,21 @@ impl World {
                         hull: &RECT_ENEMY,
                     }
                 }
+                3 => {
+                    enemy = Enemy {
+                        ty: EnemyType::SpawningRect,
+                        entity_id: ent,
+                        hull: &RECT_ENEMY,
+                    }
+                }
+                4 => {
+                    // We don't spawn minirects directly
+                    enemy = Enemy {
+                        ty: EnemyType::SpawningRect,
+                        entity_id: ent,
+                        hull: &MINIRECT_ENEMY,
+                    }
+                }
                 _ => {
                     panic!("Bad enemy type!");
                 }
@@ -627,6 +647,8 @@ impl World {
                 EnemyType::Rect => self.rect_tick(i),
                 EnemyType::Rombus => self.rombus_tick(i),
                 EnemyType::Wanderer => self.wanderer_tick(i),
+                EnemyType::SpawningRect => self.rect_tick(i),
+                &EnemyType::MiniRect => self.rect_tick(i),
                 _ => {}
             }
         }
@@ -639,10 +661,10 @@ impl World {
             .clone();
         let en = &self.enemies[rombus_id];
         let own_entity = self.get_entity(en.entity_id);
-        let new_dir = (player_pos - own_entity.position).normalized() * 5.0f32;
+        let new_dir = (player_pos - own_entity.position).normalized() * 40.0f32;
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
-        own_entity.max_velocity = 25.0f32;
+        own_entity.max_velocity = 40.0f32;
     }
 
     fn rect_tick(&mut self, rombus_id: usize) {
@@ -680,7 +702,7 @@ impl World {
         let own_entity = self.get_entity(en.entity_id);
         own_entity.acceleration = new_dir;
         own_entity.direction = new_dir;
-        own_entity.max_velocity = 25.0f32;
+        own_entity.max_velocity = 45.0f32;
     }
 
     fn wanderer_tick(&mut self, i: usize) {
@@ -705,6 +727,7 @@ impl World {
 
         let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
+        let mut minirect_spawns = Vec::<usize>::new();
 
         let mut new_hit_points: u32 = 0;
         for enemy in self.enemies.iter() {
@@ -734,10 +757,15 @@ impl World {
                     enemies_to_delete.push(enemy.entity_id);
                     missiles_to_delete.push(m.entity_id);
                     new_hit_points += enemy.get_score();
+                    if enemy.ty == EnemyType::SpawningRect {
+                        minirect_spawns.push(m.entity_id);
+                    }
                 }
             }
         }
         self.update_score(new_hit_points);
+
+        self.spawn_minirects(minirect_spawns);
 
         let new_missiles = self
             .missiles
@@ -753,6 +781,28 @@ impl World {
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
+    }
+
+    fn spawn_minirects(&mut self, minirect_spawns: Vec<usize>) {
+        for id in minirect_spawns.iter() {
+            let spawnpos;
+            {
+                let entity = self.get_entity_immutable(*id);
+                spawnpos = entity.position;
+            }
+
+            for i in 0..2 {
+                let new_ent_id = self.create_entity();
+                let new_ent = self.get_entity(new_ent_id);
+                new_ent.position = spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32;
+                let minirect = Enemy {
+                    entity_id: new_ent_id,
+                    ty: EnemyType::MiniRect,
+                    hull: &MINIRECT_ENEMY,
+                };
+                self.enemies.push(minirect);
+            }
+        }
     }
 
     fn update_score(&mut self, hit_points: u32) {
@@ -851,6 +901,14 @@ impl World {
                 EnemyType::Wanderer => {
                     items = &WANDERER_ENEMY;
                     col = WANDERER_ENEMY_COLOR
+                }
+                EnemyType::SpawningRect => {
+                    items = &RECT_ENEMY;
+                    col = MINIRECT_ENEMY_COLOR;
+                }
+                EnemyType::MiniRect => {
+                    items = &MINIRECT_ENEMY;
+                    col = MINIRECT_ENEMY_COLOR;
                 }
                 EnemyType::Invalid => todo!(),
             }

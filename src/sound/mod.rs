@@ -1,8 +1,4 @@
-use rodio::{
-    source::Source,
-    source::{Buffered, UniformSourceIterator},
-    Decoder, OutputStream, OutputStreamHandle, Sink,
-};
+use rodio::{source::Source, Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::fs::File;
 use std::io::BufReader;
 

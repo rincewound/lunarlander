@@ -19,7 +19,15 @@ pub const RECT_ENEMY: [Vec2d; 4] = [
     Vec2d::new(1.0, -1.0),
 ];
 
-pub const RECT_ENEMY_COLOR: Color = Color::RGBA(255, 0, 0, 255);
+pub const RECT_ENEMY_COLOR: Color = Color::RGBA(0, 255, 0, 255);
+
+pub const MINIRECT_ENEMY: [Vec2d; 4] = [
+    Vec2d::new(0.5, 0.5),
+    Vec2d::new(-0.5, 0.5),
+    Vec2d::new(-0.5, -0.5),
+    Vec2d::new(0.5, -0.5),
+];
+pub const MINIRECT_ENEMY_COLOR: Color = Color::RGBA(255, 0, 0, 255);
 
 pub const ROMBUS_ENEMY: [Vec2d; 4] = [
     Vec2d::new(2.0, 0.0),
@@ -36,7 +44,7 @@ pub const MISSILE: [Vec2d; 5] = [
     Vec2d::new(-0.5, -0.5),
 ];
 
-pub const ROMBUS_ENEMY_COLOR: Color = Color::RGBA(255, 255, 0, 255);
+pub const ROMBUS_ENEMY_COLOR: Color = Color::RGBA(0, 255, 255, 255);
 
 pub const WANDERER_ENEMY: [Vec2d; 13] = [
     Vec2d::new(0.0, 0.0),
