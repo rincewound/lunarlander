@@ -66,6 +66,15 @@ impl DirectionKey {
     }
 }
 
+pub const BIT_LEFT: u16 = 0b1;
+pub const BIT_RIGHT: u16 = 0b10;
+pub const BIT_UP: u16 = 0b100;
+pub const BIT_DOWN: u16 = 0b1000;
+pub const BIT_SHOOT_LEFT: u16 = 0b10000;
+pub const BIT_SHOOT_RIGHT: u16 = 0b100000;
+pub const BIT_SHOOT_UP: u16 = 0b1000000;
+pub const BIT_SHOOT_DOWN: u16 = 0b10000000;
+
 pub struct Starship {
     entity_id: usize,
     drive_enabled: bool,
@@ -112,6 +121,7 @@ pub enum State {
 }
 
 pub struct World {
+    game_control_bits: u16,
     entities: ObjectStore<Entity>,
     missiles: ObjectStore<Missile>,
     grid: VertexGrid,
@@ -166,6 +176,7 @@ impl World {
         store.update_object(lander_id, lander_entity);
 
         let w = World {
+            game_control_bits: 0,
             entities: store,
             starship: lander,
             enemies: Vec::new(),
@@ -239,38 +250,88 @@ impl World {
             .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
     }
 
+    pub fn apply_control(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
+        self.entities
+            .with(self.starship.entity_id, |e: &mut Entity| {
+                // shooting:
+                self.starship.shoot_direction = Vec2d::default();
+                let mut new_shoot_dir = Vec2d::default();
+                if self.game_control_bits & BIT_SHOOT_LEFT != 0 {
+                    new_shoot_dir = new_shoot_dir + Vec2d { x: -1.0, y: 0.0 };
+                }
+
+                if self.game_control_bits & BIT_SHOOT_RIGHT != 0 {
+                    new_shoot_dir = new_shoot_dir + Vec2d { x: 1.0, y: 0.0 };
+                }
+
+                if self.game_control_bits & BIT_SHOOT_UP != 0 {
+                    new_shoot_dir = new_shoot_dir + Vec2d { x: 0.0, y: -1.0 };
+                }
+
+                if self.game_control_bits & BIT_SHOOT_DOWN != 0 {
+                    new_shoot_dir = new_shoot_dir + Vec2d { x: 0.0, y: 1.0 };
+                }
+                self.starship.shoot_direction = new_shoot_dir;
+
+                // Movement:
+                // Nothing set, break immediately!
+                if self.game_control_bits == 0 {
+                    e.set_direction(Vec2d::default());
+                    e.set_acceleration(Vec2d::default());
+                    self.starship.drive_enabled = false;
+                    return;
+                }
+
+                let mut new_dir = Vec2d::default();
+                if self.game_control_bits & BIT_LEFT != 0 {
+                    new_dir = new_dir + Vec2d { x: -1.0, y: 0.0 };
+                }
+
+                if self.game_control_bits & BIT_RIGHT != 0 {
+                    new_dir = new_dir + Vec2d { x: 1.0, y: 0.0 };
+                }
+
+                if self.game_control_bits & BIT_UP != 0 {
+                    new_dir = new_dir + Vec2d { x: 0.0, y: -1.0 };
+                }
+
+                if self.game_control_bits & BIT_DOWN != 0 {
+                    new_dir = new_dir + Vec2d { x: 0.0, y: 1.0 };
+                }
+                new_dir = new_dir * MAX_ACCELERATION;
+                e.set_direction(e.direction() + new_dir);
+
+                let dir_vec = e.direction();
+                let accel_factor = dir_vec * MAX_ACCELERATION;
+                e.set_acceleration(accel_factor);
+
+                self.starship.drive_enabled = e.direction().is_not_zero();
+
+                if accel_factor.len() > 0.0 {
+                    let new_angle = accel_factor.angle_360();
+                    // + pi because drawing is upside down
+                    e.set_angle(new_angle + PI);
+                } else {
+                    // no direction do not change angle
+                }
+            })
+    }
+
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
         if self.game_state != State::Running {
             return;
         }
-        // Do physics (i.e. Gravity & Acceleration) tick
 
         let sim_time_in_seconds = time_in_ms / 1000.0;
         let mut num_ticks = (sim_time_in_seconds / tick_resolution_in_ms) as usize;
         if num_ticks == 0 {
             num_ticks = 1;
         }
+
+        self.apply_control(time_in_ms, tick_resolution_in_ms);
+
         self.entities
             .for_each(|e: &mut Entity, id: usize| e.physics_tick(sim_time_in_seconds, num_ticks));
-
-        //TODO: maybe use this to update lander angle smoothly
-        //let rotation = self.lander.rotation;
-        let mut lander_entity = self.entities.get_object_clone(self.starship.entity_id);
-        if lander_entity.acceleration().len() < 0.01 {
-            lander_entity.set_direction(if lander_entity.velocity() > 20.0 {
-                let sim_time_in_seconds = time_in_ms / 1000.0;
-                let break_fragment = lander_entity.direction().normalized()
-                    * 8.0
-                    * MAX_ACCELERATION
-                    * sim_time_in_seconds;
-                lander_entity.direction() - break_fragment
-            } else {
-                Vec2d::default()
-            })
-        }
-
-        self.entities
-            .update_object(self.starship.entity_id, lander_entity);
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -354,28 +415,16 @@ impl World {
         self.screen_size.y = height;
     }
 
-    pub(crate) fn direction_toggle(&mut self, dir: DirectionKey, enable: bool) {
+    pub(crate) fn modify_control_bit(&mut self, dir: u16, enable: bool) {
         if self.game_state != State::Running {
             return;
         }
-        let dir_vec = dir.get_vec2d();
-        let mut entity = self.entities.get_object_clone(self.starship.entity_id);
-        let accel_factor = dir_vec * MAX_ACCELERATION;
-        let new_accel = if enable {
-            entity.acceleration() + accel_factor
+
+        if enable {
+            self.game_control_bits |= dir;
         } else {
-            entity.acceleration() - accel_factor
-        };
-        entity.set_acceleration(new_accel);
-        if new_accel.len() > 0.0 {
-            let new_angle = new_accel.angle_360();
-            // + pi because drawing is upside down
-            entity.set_angle(new_angle + PI);
-        } else {
-            // no direction do not change angle
+            self.game_control_bits &= !dir;
         }
-        self.entities.update_object(self.starship.entity_id, entity);
-        self.starship.drive_enabled = new_accel.len() > 0.001;
     }
 
     pub(crate) fn shoot(&mut self, dir: DirectionKey, enable: bool) {

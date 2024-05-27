@@ -106,4 +106,10 @@ where
         let objects = self.objects.borrow_mut();
         return objects.iter().filter_map(|x| filter(&x.inner)).collect();
     }
+
+    pub fn with(&self, id: usize, mut f: impl FnMut(&mut T)) {
+        let entity_index = self.id_to_index(id);
+        let mut objects = self.objects.borrow_mut();
+        f(&mut objects[entity_index].inner);
+    }
 }

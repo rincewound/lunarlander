@@ -1,3 +1,4 @@
+use sdl2::controller::{Axis, GameController};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
@@ -7,7 +8,10 @@ use sdl2::sys::SDL_GetTicks;
 use sdl2::video::Window;
 use std::collections::HashMap;
 
-use simulation::{DirectionKey, World};
+use simulation::{
+    DirectionKey, World, BIT_DOWN, BIT_LEFT, BIT_RIGHT, BIT_SHOOT_DOWN, BIT_SHOOT_LEFT,
+    BIT_SHOOT_RIGHT, BIT_SHOOT_UP, BIT_UP,
+};
 
 mod collision;
 mod draw;
@@ -30,9 +34,16 @@ pub fn main() -> Result<(), String> {
 
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
+    let gamepad = sdl_context.game_controller()?;
+
+    let mut pad: Option<GameController> = None;
+    if gamepad.is_game_controller(0) {
+        println!("Using {}", gamepad.name_for_index(0).unwrap());
+        pad = Some(gamepad.open(0).unwrap());
+    }
 
     let mut window = video_subsystem
-        .window("rust-sdl2 demo: Video", WINDOW_WIDTH, WINDOW_HEIGHT)
+        .window("GWARS", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .resizable()
         .opengl()
@@ -78,19 +89,16 @@ pub fn main() -> Result<(), String> {
                     if !repeat {
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::Up => sim.shoot(DirectionKey::Up, true),
-                                Keycode::Down => sim.shoot(DirectionKey::Down, true),
-                                Keycode::Left => sim.shoot(DirectionKey::Left, true),
-                                Keycode::Right => sim.shoot(DirectionKey::Right, true),
-                                Keycode::W => sim.direction_toggle(DirectionKey::Up, true),
-                                Keycode::S => sim.direction_toggle(DirectionKey::Down, true),
-                                Keycode::A => sim.direction_toggle(DirectionKey::Left, true),
-                                Keycode::D => sim.direction_toggle(DirectionKey::Right, true),
+                                Keycode::Up => sim.modify_control_bit(BIT_SHOOT_UP, true),
+                                Keycode::Down => sim.modify_control_bit(BIT_SHOOT_DOWN, true),
+                                Keycode::Left => sim.modify_control_bit(BIT_SHOOT_LEFT, true),
+                                Keycode::Right => sim.modify_control_bit(BIT_SHOOT_RIGHT, true),
+                                Keycode::W => sim.modify_control_bit(BIT_UP, true),
+                                Keycode::S => sim.modify_control_bit(BIT_DOWN, true),
+                                Keycode::A => sim.modify_control_bit(BIT_LEFT, true),
+                                Keycode::D => sim.modify_control_bit(BIT_RIGHT, true),
                                 Keycode::M => sim.toggle_background_music(),
-                                Keycode::R => {
-                                    sim = new_simultaion();
-                                    sim.update_window_size(w as f32, h as f32);
-                                }
+                                Keycode::R => restart(&mut sim, w, h),
                                 _ => continue,
                             },
                             None => continue,
@@ -103,14 +111,14 @@ pub fn main() -> Result<(), String> {
                     if !repeat {
                         match keycode {
                             Some(keycode) => match keycode {
-                                Keycode::Up => sim.shoot(DirectionKey::Up, false),
-                                Keycode::Down => sim.shoot(DirectionKey::Down, false),
-                                Keycode::Left => sim.shoot(DirectionKey::Left, false),
-                                Keycode::Right => sim.shoot(DirectionKey::Right, false),
-                                Keycode::W => sim.direction_toggle(DirectionKey::Up, false),
-                                Keycode::S => sim.direction_toggle(DirectionKey::Down, false),
-                                Keycode::A => sim.direction_toggle(DirectionKey::Left, false),
-                                Keycode::D => sim.direction_toggle(DirectionKey::Right, false),
+                                Keycode::Up => sim.modify_control_bit(BIT_SHOOT_UP, false),
+                                Keycode::Down => sim.modify_control_bit(BIT_SHOOT_DOWN, false),
+                                Keycode::Left => sim.modify_control_bit(BIT_SHOOT_LEFT, false),
+                                Keycode::Right => sim.modify_control_bit(BIT_SHOOT_RIGHT, false),
+                                Keycode::W => sim.modify_control_bit(BIT_UP, false),
+                                Keycode::S => sim.modify_control_bit(BIT_DOWN, false),
+                                Keycode::A => sim.modify_control_bit(BIT_LEFT, false),
+                                Keycode::D => sim.modify_control_bit(BIT_RIGHT, false),
                                 _ => continue,
                             },
                             None => continue,
@@ -125,6 +133,34 @@ pub fn main() -> Result<(), String> {
                     }
                     _ => continue,
                 },
+                Event::ControllerAxisMotion {
+                    timestamp,
+                    which,
+                    axis,
+                    value,
+                } => {
+                    println!("Axis: {:?} value: {:?}", axis, value);
+                    match axis {
+                        Axis::LeftX => {
+                            sim.modify_control_bit(BIT_LEFT, value < -2000);
+                            sim.modify_control_bit(BIT_RIGHT, value > 2000);
+                        }
+                        Axis::LeftY => {
+                            sim.modify_control_bit(BIT_UP, value < -2000);
+                            sim.modify_control_bit(BIT_DOWN, value > 2000);
+                        }
+                        Axis::RightX => {
+                            sim.modify_control_bit(BIT_SHOOT_LEFT, value < -2000);
+                            sim.modify_control_bit(BIT_SHOOT_RIGHT, value > 2000);
+                        }
+                        Axis::RightY => {
+                            sim.modify_control_bit(BIT_SHOOT_UP, value < -2000);
+                            sim.modify_control_bit(BIT_SHOOT_DOWN, value > 2000);
+                        }
+                        Axis::TriggerLeft => restart(&mut sim, w, h),
+                        Axis::TriggerRight => todo!(),
+                    }
+                }
                 _ => {}
             }
         }
@@ -145,4 +181,9 @@ pub fn main() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn restart(sim: &mut World, w: u32, h: u32) {
+    *sim = new_simultaion();
+    sim.update_window_size(w as f32, h as f32);
 }

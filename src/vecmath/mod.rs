@@ -68,6 +68,10 @@ impl Vec2d {
         let mut rnd = rand::thread_rng();
         return Vec2d::new(rnd.gen_range(min_x..max_x), rnd.gen_range(min_y..max_y));
     }
+
+    pub(crate) fn is_not_zero(&self) -> bool {
+        return self.x != 0.0 || self.y != 0.0;
+    }
 }
 
 impl std::ops::Add<Vec2d> for Vec2d {
