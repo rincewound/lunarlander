@@ -582,9 +582,9 @@ impl World {
             .into_iter()
             .filter(|a| !enemies_to_delete.contains(&a.entity_id));
 
-        println!("GC MISSILES");
+        //println!("GC MISSILES");
         self.garbage_collect_entities(&missiles_to_delete);
-        println!("GC ENEMIES;");
+        //println!("GC ENEMIES;");
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();

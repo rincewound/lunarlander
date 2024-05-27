@@ -42,9 +42,24 @@ impl VertexGrid {
         let y_off = (y / GRID_DISTANCE) as usize;
         let index = y_off * num_coll + w_off;
 
-        let dir = missile_pos - self.grid[index].position();
-        if dir.len() > 0.01 {
-            self.grid[index].add_to_dir(dir.normalized() * 15.0);
+        let mut indices: Vec<usize> = Vec::new();
+        indices.push(index);
+        if (index > num_coll) {
+            indices.push(index - num_coll);
+        }
+        if (index + num_coll < self.grid.len()) {
+            indices.push(index + num_coll);
+        }
+        if (index % num_coll != 0) {
+            indices.push(index + 1);
+            indices.push(index - 1);
+        }
+
+        for &i in indices.iter() {
+            let dir = missile_pos - self.grid[i].position();
+            if dir.len() > 0.01 {
+                self.grid[i].add_to_dir(dir.normalized() * 10.0);
+            }
         }
     }
 
