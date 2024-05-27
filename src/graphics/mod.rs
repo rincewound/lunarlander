@@ -83,17 +83,3 @@ pub fn render_game_over(
     )
     .unwrap();
 }
-
-pub fn render_won_text(
-    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-    window_center: Vec2d,
-) {
-    draw::draw_text_centered(
-        canvas,
-        "WON",
-        60,
-        Point::new(window_center.x as i32, window_center.y as i32),
-        Color::RGB(255, 0, 0),
-    )
-    .unwrap()
-}

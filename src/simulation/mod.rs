@@ -8,9 +8,9 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
-    self, render_game_over, render_won_text, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR,
-    MISSILE, RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR,
-    WANDERER_ENEMY, WANDERER_ENEMY_COLOR,
+    self, render_game_over, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR, MISSILE,
+    RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY,
+    WANDERER_ENEMY_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -18,6 +18,17 @@ use crate::{
     collision, draw, hud,
     vecmath::{self, Vec2d},
 };
+
+use self::enemy::{Enemy, EnemyType};
+use self::explosion::Explosion;
+
+mod enemy;
+mod explosion;
+mod physics;
+mod vertex;
+
+use self::physics::Physics;
+use self::vertex::Vertex;
 
 const MAX_ACCELERATION: f32 = 800.0;
 const VELOCITY_SPACESHIP: f32 = 450.0;
@@ -27,11 +38,6 @@ const MAX_SHOOT_COOLDOWN: f32 = 0.15;
 const MIN_SHOOT_COOLDOWN: f32 = 0.08;
 
 const NUM_EXPLOSION_FARMES: u32 = 50;
-
-struct Physics {
-    gravity: f32, // force applied per second!
-    gravity_direction: Vec2d,
-}
 
 pub enum BorderBehavior {
     Dismiss,
@@ -82,36 +88,6 @@ pub struct Missile {
     time_to_live: f32, // in seconds
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum EnemyType {
-    Rect,
-    Rombus,
-    Wanderer,
-    SpawningRect,
-    MiniRect,
-    Invalid,
-}
-
-#[derive(Clone)]
-pub struct Enemy<'a> {
-    entity_id: usize,
-    ty: EnemyType,
-    hull: &'a [Vec2d],
-}
-
-impl Enemy<'_> {
-    fn get_score(&self) -> u32 {
-        return match self.ty {
-            EnemyType::Invalid => 0,
-            EnemyType::Rombus => 100,
-            EnemyType::Rect => 300,
-            EnemyType::Wanderer => 200,
-            EnemyType::SpawningRect => 200,
-            EnemyType::MiniRect => 50,
-        };
-    }
-}
-
 #[derive(Clone)]
 pub struct FloatingText {
     position: Vec2d,
@@ -128,34 +104,9 @@ impl FloatingText {
     }
 }
 
-#[derive(Clone)]
-pub struct Explosion {
-    position: Vec2d,
-    frame_count: u32,
-    sparc_dir: Vec<Vec2d>,
-}
-
-impl Explosion {
-    fn new(position: Vec2d) -> Self {
-        let mut rnd = rand::thread_rng();
-        let count_sparcs = rnd.gen_range(50..100);
-        let mut init_sparc = Vec::new();
-        for _ in 0..count_sparcs {
-            let new_sparc = Vec2d::from_angle(rnd.gen_range(0.0..360.0));
-            let new_sparc = new_sparc * rnd.gen_range(0.5..2.0);
-            init_sparc.push(new_sparc);
-        }
-        Self {
-            position: position,
-            frame_count: 0,
-            sparc_dir: init_sparc,
-        }
-    }
-}
 #[derive(PartialEq)]
 pub enum State {
     Running,
-    Won,
     Lost,
 }
 
@@ -165,8 +116,6 @@ pub struct World {
     entities: Vec<Entity>,
     missiles: Vec<Missile>,
     grid: Vec<Vertex>,
-    grid_tick_count: i32,
-    grid_tick_max: i32,
     enemies: Vec<Enemy<'static>>,
     texts: Vec<FloatingText>,
     explosions: Vec<Explosion>,
@@ -188,51 +137,6 @@ const WORLD_SIZE: Vec2d = Vec2d {
 };
 
 const GRID_DISTANCE: f32 = 20.0;
-pub struct Vertex {
-    main_position: Vec2d,
-    positoin: Vec2d,
-    direction: Vec2d,
-}
-
-impl Vertex {
-    pub fn new(pos: Vec2d) -> Self {
-        Self {
-            positoin: pos,
-            main_position: pos,
-            direction: Vec2d::new(0.0, 0.0),
-        }
-    }
-
-    pub fn set_direction(&mut self, dir: Vec2d) {
-        self.direction = dir;
-    }
-
-    pub fn mov(&mut self) {
-        self.positoin = self.positoin + self.direction;
-        self.direction = self.direction * 0.5;
-    }
-
-    pub fn add_to_dir(&mut self, dir: Vec2d) {
-        self.direction = self.direction + dir;
-        if self.direction.len() > 10.0 {
-            self.direction = self.direction.normalized() * 10.0;
-        }
-    }
-
-    pub fn set_dir_back(&mut self) {
-        let dir = (self.main_position - self.positoin);
-        if dir.len() > 0.01 {
-            let length = dir.len();
-            let mut mult = length / 5.0;
-            if mult > 1.0 {
-                mult = 1.0;
-            } else if mult < 0.0 {
-                mult = 0.0;
-            }
-            self.add_to_dir(dir.normalized() * mult * 5.0);
-        }
-    }
-}
 
 impl Missile {
     pub fn new(id: usize) -> Self {
@@ -280,88 +184,8 @@ impl Entity {
         return pos * screenspace_transform * rot;
     }
 
-    pub fn get_id(&self) -> usize {
-        return self.id;
-    }
-
     fn velocity(&self) -> f32 {
         return self.direction.len();
-    }
-}
-
-impl Physics {
-    pub fn default() -> Self {
-        Physics {
-            gravity: 9.81 / 24.0,
-            gravity_direction: Vec2d::new(0.0, 0.0),
-        }
-    }
-
-    pub fn physics_tick(
-        &self,
-        time_in_ms: f32,
-        tick_resolution_in_ms: f32,
-        entities: &mut Vec<Entity>,
-    ) {
-        let mut num_ticks = (time_in_ms / tick_resolution_in_ms) as u32;
-        if num_ticks == 0 {
-            num_ticks = 1;
-        }
-
-        //println!("Ticks {}", num_ticks);
-
-        // Apply gravity and acceleration to each entity,
-        // Apply resulting speed to position of entity
-        let tick_width = (time_in_ms / num_ticks as f32) / 1000.0f32;
-        for _ in 0..num_ticks {
-            for e in entities.iter_mut() {
-                let sim_time_in_seconds = tick_width;
-
-                // update direction by applying gravity:
-                let gravity_fragment =
-                    self.gravity_direction.clone() * (self.gravity * sim_time_in_seconds);
-
-                if e.update {
-                    e.direction = e.direction + gravity_fragment;
-                    // update direction by applying acceleration:
-                    let accel_fragment = e.acceleration.clone() * (sim_time_in_seconds);
-                    e.direction = e.direction + accel_fragment;
-
-                    e.direction = if e.direction.len() > e.max_velocity {
-                        e.direction.normalized() * e.max_velocity
-                    } else {
-                        e.direction
-                    };
-                    let mut new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
-
-                    if new_pos.x < 0.0
-                        || new_pos.y < 0.0
-                        || new_pos.x > WORLD_SIZE.x
-                        || new_pos.y > WORLD_SIZE.y
-                    {
-                        match e.border_behavior {
-                            BorderBehavior::Dismiss => {
-                                // TODO: destroy missile/entity
-                            }
-                            BorderBehavior::Bounce => {
-                                e.direction = e.direction * -1.0;
-                                new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
-                            }
-                            BorderBehavior::BounceSlowdown => {
-                                e.direction = e.direction * -0.2;
-                                new_pos = e.position + e.direction.clone() * (sim_time_in_seconds);
-                            }
-                        }
-                    }
-
-                    e.position = new_pos;
-                }
-
-                // TBD: Check if something like a terminal velocity would be a good idea
-                // -> This would probably make the game a bit easier and also make the physics
-                // simulation more robust
-            }
-        }
     }
 }
 
@@ -393,8 +217,6 @@ impl World {
             missiles: vec![],
             grid: Self::make_grid(),
             score: 0,
-            grid_tick_count: 0,
-            grid_tick_max: 10,
             sound: sound::Sound::new(),
             screen_shake_frames: 0,
             screen_shake_strength: 0.0,
@@ -522,7 +344,6 @@ impl World {
         textures: &HashMap<String, Texture>,
     ) {
         match self.game_state {
-            State::Won => render_won_text(canvas, self.screen_size / 2.0),
             State::Lost => render_game_over(canvas, self.screen_size / 2.0),
             State::Running => (),
         }
@@ -639,8 +460,6 @@ impl World {
             self.create_missile(position, direction);
         }
 
-        for missile in self.missiles.iter_mut() {}
-
         for i in 0..(self.missiles.len()) {
             self.missiles[i].time_to_live -= time_in_ms / 1000.0f32;
 
@@ -658,14 +477,13 @@ impl World {
         if x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y {
             return;
         }
-        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize; //=41
-        let num_rows = (WORLD_SIZE.y / GRID_DISTANCE + 1.0) as usize; //=31
 
+        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize;
         let w_off = (x / GRID_DISTANCE) as usize;
         let y_off = (y / GRID_DISTANCE) as usize;
-        let index = (y_off * num_coll + w_off);
+        let index = y_off * num_coll + w_off;
 
-        let dir = missile_pos - grid[index].positoin;
+        let dir = missile_pos - grid[index].position();
         if dir.len() > 0.01 {
             grid[index].add_to_dir(dir.normalized() * 15.0);
         }
@@ -1137,9 +955,9 @@ impl World {
             let mut i: usize = 0;
             while i < (row_count - 1) {
                 let p1 = screen_space_transform
-                    .transform(&self.grid[i + (current_row * row_count)].positoin);
+                    .transform(&self.grid[i + (current_row * row_count)].position());
                 let p2: Vec2d = screen_space_transform
-                    .transform(&self.grid[i + 1 + (current_row * row_count)].positoin);
+                    .transform(&self.grid[i + 1 + (current_row * row_count)].position());
                 let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }
@@ -1153,9 +971,9 @@ impl World {
             let mut i: usize = 0;
             while i < (col_count - 1) {
                 let p1 = screen_space_transform
-                    .transform(&self.grid[i * row_count + current_col].positoin);
+                    .transform(&self.grid[i * row_count + current_col].position());
                 let p2: Vec2d = screen_space_transform
-                    .transform(&self.grid[(i + 1) * row_count + current_col].positoin);
+                    .transform(&self.grid[(i + 1) * row_count + current_col].position());
                 let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
                 i += 1;
             }

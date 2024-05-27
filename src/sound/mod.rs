@@ -1,4 +1,3 @@
-use rodio::source::SamplesConverter;
 use rodio::{source::Source, Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::collections::HashMap;
 use std::fs::File;
@@ -18,7 +17,6 @@ impl AsRef<[u8]> for Sfx {
 
 impl Sfx {
     pub fn load(filename: &str) -> io::Result<Sfx> {
-        use std::fs::File;
         let mut buf = Vec::new();
         let mut file = File::open(filename)?;
         file.read_to_end(&mut buf)?;
