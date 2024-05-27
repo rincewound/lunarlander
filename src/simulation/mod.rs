@@ -74,6 +74,7 @@ pub const BIT_SHOOT_LEFT: u16 = 0b10000;
 pub const BIT_SHOOT_RIGHT: u16 = 0b100000;
 pub const BIT_SHOOT_UP: u16 = 0b1000000;
 pub const BIT_SHOOT_DOWN: u16 = 0b10000000;
+pub const MOVEMENT_MASK: u16 = BIT_LEFT | BIT_RIGHT | BIT_UP | BIT_DOWN;
 
 pub struct Starship {
     entity_id: usize,
@@ -275,7 +276,7 @@ impl World {
 
                 // Movement:
                 // Nothing set, break immediately!
-                if self.game_control_bits == 0 {
+                if self.game_control_bits & MOVEMENT_MASK == 0 {
                     e.set_direction(Vec2d::default());
                     e.set_acceleration(Vec2d::default());
                     self.starship.drive_enabled = false;
