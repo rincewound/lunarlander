@@ -9,8 +9,8 @@ use sdl2::video::Window;
 use std::collections::HashMap;
 
 use simulation::{
-    DirectionKey, World, BIT_DOWN, BIT_LEFT, BIT_RIGHT, BIT_SHOOT_DOWN, BIT_SHOOT_LEFT,
-    BIT_SHOOT_RIGHT, BIT_SHOOT_UP, BIT_UP,
+    World, BIT_DOWN, BIT_LEFT, BIT_RIGHT, BIT_SHOOT_DOWN, BIT_SHOOT_LEFT, BIT_SHOOT_RIGHT,
+    BIT_SHOOT_UP, BIT_UP,
 };
 
 mod collision;
@@ -36,13 +36,14 @@ pub fn main() -> Result<(), String> {
     let video_subsystem = sdl_context.video()?;
     let gamepad = sdl_context.game_controller()?;
 
-    let mut pad: Option<GameController> = None;
-    if gamepad.is_game_controller(0) {
+    let _pad: Option<GameController> = if gamepad.is_game_controller(0) {
         println!("Using {}", gamepad.name_for_index(0).unwrap());
-        pad = Some(gamepad.open(0).unwrap());
-    }
+        Some(gamepad.open(0).unwrap())
+    } else {
+        None
+    };
 
-    let mut window = video_subsystem
+    let window = video_subsystem
         .window("GWARS", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .resizable()
@@ -134,8 +135,8 @@ pub fn main() -> Result<(), String> {
                     _ => continue,
                 },
                 Event::ControllerAxisMotion {
-                    timestamp,
-                    which,
+                    timestamp: _,
+                    which: _,
                     axis,
                     value,
                 } => {

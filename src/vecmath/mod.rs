@@ -1,7 +1,7 @@
-use std::f32::consts::PI;
+#![allow(dead_code)]
 
-#[allow(dead_code)]
 use rand::Rng;
+use std::f32::consts::PI;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2d {

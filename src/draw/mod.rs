@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;

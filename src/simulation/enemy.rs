@@ -12,7 +12,7 @@ use crate::{
     vecmath::{self, TransformationMatrix, Vec2d},
 };
 
-use super::{entity::Entity, objectstore::ObjectStore, Missile, World};
+use super::{entity::Entity, objectstore::ObjectStore, Missile};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum EnemyType {
@@ -105,13 +105,13 @@ impl Enemy<'_> {
     }
 
     fn rombus_tick(&self, world: &ObjectStore<Entity>, player_pos: Vec2d) {
-        let mut ent = world.get_object_clone(self.entity_id);
-        const ROMBUS_VEL: f32 = 120.0f32;
-        let new_dir = (player_pos - ent.position()).normalized() * ROMBUS_VEL;
-        ent.set_acceleration(new_dir);
-        ent.set_direction(new_dir);
-        ent.set_max_velocity(ROMBUS_VEL);
-        world.update_object(self.entity_id, ent);
+        world.with(self.entity_id, |ent| {
+            const ROMBUS_VEL: f32 = 120.0f32;
+            let new_dir = (player_pos - ent.position()).normalized() * ROMBUS_VEL;
+            ent.set_acceleration(new_dir);
+            ent.set_direction(new_dir);
+            ent.set_max_velocity(ROMBUS_VEL);
+        });
     }
 
     fn rect_tick(
@@ -135,7 +135,7 @@ impl Enemy<'_> {
             new_dir = (player_pos - current_pos).normalized() * vel;
         }
 
-        missiles.for_each(|missile, id| {
+        missiles.for_each(|missile, _| {
             let missile_ent = world.get_object(missile.entity_id);
             let missile_pos = missile_ent.position();
             // each missile will apply a force on the rect enemy, that
@@ -152,24 +152,23 @@ impl Enemy<'_> {
             new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * vel);
         });
 
-        let mut ent = world.get_object_clone(self.entity_id);
-        ent.set_acceleration(new_dir);
-        ent.set_direction(new_dir);
-        ent.set_max_velocity(vel);
-        world.update_object(self.entity_id, ent);
+        world.with(self.entity_id, |ent| {
+            ent.set_acceleration(new_dir);
+            ent.set_direction(new_dir);
+            ent.set_max_velocity(vel);
+        });
     }
 
     fn wanderer_tick(&self, world: &ObjectStore<Entity>) {
-        let mut ent = world.get_object_clone(self.entity_id);
-        let new_dir = Vec2d {
-            x: thread_rng().gen_range(-1.0..1.0) as f32,
-            y: thread_rng().gen_range(-1.0..1.0) as f32,
-        };
-
-        const MAX_VEL: f32 = 80f32;
-        ent.set_direction(new_dir.normalized() * MAX_VEL);
-        ent.set_acceleration(ent.direction() * MAX_VEL);
-        ent.set_max_velocity(MAX_VEL);
-        world.update_object(self.entity_id, ent);
+        world.with(self.entity_id, |ent| {
+            const MAX_VEL: f32 = 80f32;
+            let new_dir = Vec2d {
+                x: thread_rng().gen_range(-1.0..1.0) as f32,
+                y: thread_rng().gen_range(-1.0..1.0) as f32,
+            };
+            ent.set_direction(new_dir.normalized() * MAX_VEL);
+            ent.set_acceleration(ent.direction() * MAX_VEL);
+            ent.set_max_velocity(MAX_VEL);
+        });
     }
 }

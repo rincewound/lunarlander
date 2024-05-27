@@ -48,24 +48,6 @@ pub enum BorderBehavior {
     BounceSlowdown,
 }
 
-pub enum DirectionKey {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl DirectionKey {
-    fn get_vec2d(&self) -> Vec2d {
-        match self {
-            DirectionKey::Up => Vec2d::new(0.0, -1.0),
-            DirectionKey::Down => Vec2d::new(0.0, 1.0),
-            DirectionKey::Left => Vec2d::new(-1.0, 0.0),
-            DirectionKey::Right => Vec2d::new(1.0, 0.0),
-        }
-    }
-}
-
 pub const BIT_LEFT: u16 = 0b1;
 pub const BIT_RIGHT: u16 = 0b10;
 pub const BIT_UP: u16 = 0b100;
@@ -251,7 +233,7 @@ impl World {
             .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
     }
 
-    pub fn apply_control(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
+    pub fn apply_control(&mut self) {
         self.entities
             .with(self.starship.entity_id, |e: &mut Entity| {
                 // shooting:
@@ -329,14 +311,14 @@ impl World {
             num_ticks = 1;
         }
 
-        self.apply_control(time_in_ms, tick_resolution_in_ms);
+        self.apply_control();
 
         self.entities
-            .for_each(|e: &mut Entity, id: usize| e.physics_tick(sim_time_in_seconds, num_ticks));
+            .for_each(|e: &mut Entity, _: usize| e.physics_tick(sim_time_in_seconds, num_ticks));
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
-        self.enemy_tick(time_in_ms);
+        self.enemy_tick();
         self.texts_tick(time_in_ms);
         self.explosion_tick();
         self.grid_tick();
@@ -402,7 +384,7 @@ impl World {
         screen_space_transform: TransformationMatrix,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
     ) {
-        self.missiles.for_each(|missile, id| {
+        self.missiles.for_each(|missile, _| {
             let entity = self.entities.get_object(missile.entity_id);
             let scale = vecmath::TransformationMatrix::scale(7f32, 7f32);
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
@@ -428,18 +410,6 @@ impl World {
         }
     }
 
-    pub(crate) fn shoot(&mut self, dir: DirectionKey, enable: bool) {
-        if self.game_state != State::Running {
-            return;
-        }
-        let shoot_dir = dir.get_vec2d();
-        self.starship.shoot_direction = if enable {
-            self.starship.shoot_direction + shoot_dir
-        } else {
-            self.starship.shoot_direction - shoot_dir
-        };
-    }
-
     fn missile_tick(&mut self, time_in_ms: f32) {
         if self.starship.shoot_cooldown_count > 0.0 {
             self.starship.shoot_cooldown_count -= time_in_ms / 1000.0;
@@ -456,7 +426,7 @@ impl World {
             self.create_missile(position, direction);
         }
 
-        self.missiles.for_each(|missile, id| {
+        self.missiles.for_each(|missile, _| {
             missile.time_to_live -= time_in_ms / 1000.0f32;
 
             let id = missile.entity_id;
@@ -484,7 +454,7 @@ impl World {
         }
     }
 
-    fn enemy_tick(&mut self, time_in_ms: f32) {
+    fn enemy_tick(&mut self) {
         // check if we have enough enemies:
         self.spawn_enemies();
 
@@ -550,10 +520,11 @@ impl World {
                     }
 
                     let epos = self.make_safe_enemy_position();
-                    let mut the_entity = self.entities.get_object_clone(ent);
-                    the_entity.set_position(epos);
-                    the_entity.set_border_behavior(BorderBehavior::Bounce);
-                    self.entities.update_object(ent, the_entity);
+                    self.entities.with(ent, |the_entity| {
+                        the_entity.set_position(epos);
+                        the_entity.set_position(epos);
+                        the_entity.set_border_behavior(BorderBehavior::Bounce);
+                    });
                     self.enemies.push(enemy);
                 }
             }
@@ -590,7 +561,7 @@ impl World {
                 self.game_state = State::Lost;
             }
             // Check collision against missiles
-            self.missiles.for_each(|missile, id| {
+            self.missiles.for_each(|missile, _| {
                 let missile_entity = self.entities.get_object(missile.entity_id);
                 let projectile_collision =
                     collision::hit_test(missile_entity.position(), &enemy_hull);

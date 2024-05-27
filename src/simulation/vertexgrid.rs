@@ -44,13 +44,13 @@ impl VertexGrid {
 
         let mut indices: Vec<usize> = Vec::new();
         indices.push(index);
-        if (index > num_coll) {
+        if index > num_coll {
             indices.push(index - num_coll);
         }
-        if (index + num_coll < self.grid.len()) {
+        if index + num_coll < self.grid.len() {
             indices.push(index + num_coll);
         }
-        if (index % num_coll != 0) {
+        if index % num_coll != 0 {
             indices.push(index + 1);
             indices.push(index - 1);
         }
