@@ -108,7 +108,7 @@ pub struct World {
     entities: ObjectStore<Entity>,
     missiles: ObjectStore<Missile>,
     grid: VertexGrid,
-    enemies: Vec<Enemy<'static>>,
+    enemies: ObjectStore<Enemy<'static>>,
     texts: Vec<FloatingText>,
     explosions: Vec<Explosion>,
     starship: Starship,
@@ -162,7 +162,7 @@ impl World {
             game_control_bits: 0,
             entities: store,
             starship: lander,
-            enemies: Vec::new(),
+            enemies: ObjectStore::new(),
             texts: Vec::new(),
             explosions: Vec::new(),
             hud: hud::Hud::new(),
@@ -183,20 +183,21 @@ impl World {
         w
     }
 
-    pub fn create_entity(&mut self) -> usize {
-        return self.entities.create_object();
-    }
+    // pub fn create_entity(&mut self) -> usize {
+    //     return self.entities.create_object();
+    // }
 
     pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
         let id = self.entities.create_object();
-        let mut entity = self.entities.get_object_clone(id);
-        entity.set_position(pos);
-        entity.set_direction(direction);
-        entity.set_acceleration(direction * MAX_ACCELERATION);
-        entity.set_max_velocity(VELOCITY_MISSILE);
-        entity.set_border_behavior(BorderBehavior::Dismiss);
-        entity.set_angle(direction.angle_360());
-        self.entities.update_object(id, entity);
+        self.entities.with(id, |entity| {
+            entity.set_position(pos);
+            entity.set_direction(direction);
+            entity.set_acceleration(direction * MAX_ACCELERATION);
+            entity.set_max_velocity(VELOCITY_MISSILE);
+            entity.set_border_behavior(BorderBehavior::Dismiss);
+            entity.set_angle(direction.angle_360());
+        });
+
         self.missiles.insert_object(Missile::new(id));
     }
 
@@ -458,10 +459,9 @@ impl World {
         // check if we have enough enemies:
         self.spawn_enemies();
 
-        for i in 0..self.enemies.len() {
-            let en = &self.enemies[i];
-            en.tick(&self.entities, self.starship.entity_id, &self.missiles);
-        }
+        self.enemies.for_each(|enemy, _| {
+            enemy.tick(&self.entities, self.starship.entity_id, &self.missiles);
+        });
     }
 
     fn spawn_enemies(&mut self) {
@@ -472,60 +472,57 @@ impl World {
                 let num_to_spawn = thread_rng().gen_range(2..10);
 
                 for _ in 0..num_to_spawn {
-                    let ent = self.create_entity();
-                    let enemy;
-
-                    let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
-
-                    match enemy_type {
-                        0 => {
-                            enemy = Enemy {
-                                ty: EnemyType::Rombus,
-                                entity_id: ent,
-                                hull: &ROMBUS_ENEMY,
-                            }
-                        }
-                        1 => {
-                            enemy = Enemy {
-                                ty: EnemyType::Rect,
-                                entity_id: ent,
-                                hull: &RECT_ENEMY,
-                            }
-                        }
-                        2 => {
-                            enemy = Enemy {
-                                ty: EnemyType::Wanderer,
-                                entity_id: ent,
-                                hull: &RECT_ENEMY,
-                            }
-                        }
-                        3 => {
-                            enemy = Enemy {
-                                ty: EnemyType::SpawningRect,
-                                entity_id: ent,
-                                hull: &RECT_ENEMY,
-                            }
-                        }
-                        4 => {
-                            // We don't spawn minirects directly
-                            enemy = Enemy {
-                                ty: EnemyType::SpawningRect,
-                                entity_id: ent,
-                                hull: &MINIRECT_ENEMY,
-                            }
-                        }
-                        _ => {
-                            panic!("Bad enemy type!");
-                        }
-                    }
-
                     let epos = self.make_safe_enemy_position();
-                    self.entities.with(ent, |the_entity| {
+                    self.entities.with_new(|the_entity, entity_index| {
+                        let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
+                        let enemy;
+                        match enemy_type {
+                            0 => {
+                                enemy = Enemy {
+                                    ty: EnemyType::Rombus,
+                                    entity_id: entity_index,
+                                    hull: &ROMBUS_ENEMY,
+                                }
+                            }
+                            1 => {
+                                enemy = Enemy {
+                                    ty: EnemyType::Rect,
+                                    entity_id: entity_index,
+                                    hull: &RECT_ENEMY,
+                                }
+                            }
+                            2 => {
+                                enemy = Enemy {
+                                    ty: EnemyType::Wanderer,
+                                    entity_id: entity_index,
+                                    hull: &RECT_ENEMY,
+                                }
+                            }
+                            3 => {
+                                enemy = Enemy {
+                                    ty: EnemyType::SpawningRect,
+                                    entity_id: entity_index,
+                                    hull: &RECT_ENEMY,
+                                }
+                            }
+                            4 => {
+                                // We don't spawn minirects directly
+                                enemy = Enemy {
+                                    ty: EnemyType::SpawningRect,
+                                    entity_id: entity_index,
+                                    hull: &MINIRECT_ENEMY,
+                                }
+                            }
+                            _ => {
+                                panic!("Bad enemy type!");
+                            }
+                        }
+
                         the_entity.set_position(epos);
                         the_entity.set_position(epos);
                         the_entity.set_border_behavior(BorderBehavior::Bounce);
+                        self.enemies.insert_object(enemy);
                     });
-                    self.enemies.push(enemy);
                 }
             }
         }
@@ -546,7 +543,8 @@ impl World {
 
         let mut new_hit_points: u32 = 0;
         let mut new_texts: Vec<FloatingText> = Vec::new();
-        for enemy in self.enemies.iter() {
+        //for enemy in self.enemies.iter() {
+        self.enemies.for_each(|enemy, _| {
             // create collidable hull for entity:
             let enemy_ent = self.entities.get_object(enemy.entity_id);
             let enemy_pos = enemy_ent.position();
@@ -566,9 +564,6 @@ impl World {
                 let projectile_collision =
                     collision::hit_test(missile_entity.position(), &enemy_hull);
 
-                // create two new asteroids, smaller than the previous one, but
-                // flying in other directions.
-                // also: Schedule this asteroid for deletion
                 if projectile_collision {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
@@ -588,7 +583,8 @@ impl World {
                     self.explosions.push(Explosion::new(enemy_pos));
                 }
             });
-        }
+        });
+
         self.update_score(new_hit_points);
         self.texts.extend(new_texts);
 
@@ -596,16 +592,10 @@ impl World {
 
         self.missiles
             .garbage_collect_filter(|x| missiles_to_delete.contains(&x.entity_id));
-
-        let new_enemies = self
-            .enemies
-            .clone()
-            .into_iter()
-            .filter(|a| !enemies_to_delete.contains(&a.entity_id));
-
         self.garbage_collect_entities(&missiles_to_delete);
         self.garbage_collect_entities(&enemies_to_delete);
-        self.enemies = new_enemies.collect();
+        self.enemies
+            .garbage_collect_filter(|a| enemies_to_delete.contains(&a.entity_id))
     }
 
     fn spawn_minirects(&mut self, minirect_spawns: Vec<usize>) {
@@ -617,17 +607,16 @@ impl World {
             }
 
             for i in 0..2 {
-                let new_ent_id = self.create_entity();
-                let mut new_ent = self.entities.get_object_clone(new_ent_id);
-                new_ent.set_position(spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32);
-                new_ent.set_border_behavior(BorderBehavior::Bounce);
-                let minirect = Enemy {
-                    entity_id: new_ent_id,
-                    ty: EnemyType::MiniRect,
-                    hull: &MINIRECT_ENEMY,
-                };
-                self.entities.update_object(new_ent_id, new_ent);
-                self.enemies.push(minirect);
+                self.entities.with_new(|the_entity, entity_index| {
+                    the_entity.set_position(spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32);
+                    the_entity.set_border_behavior(BorderBehavior::Bounce);
+                    let minirect = Enemy {
+                        entity_id: entity_index,
+                        ty: EnemyType::MiniRect,
+                        hull: &MINIRECT_ENEMY,
+                    };
+                    self.enemies.insert_object(minirect);
+                });
             }
         }
     }
@@ -709,10 +698,10 @@ impl World {
         screen_space_transform: TransformationMatrix,
         textures: &HashMap<String, Texture<'_>>,
     ) {
-        for enemy in self.enemies.iter() {
+        self.enemies.for_each(|enemy, _| {
             let entity = self.entities.get_object(enemy.entity_id);
             enemy.render(canvas, screen_space_transform, textures, &entity);
-        }
+        });
     }
 
     fn render_explosions(
@@ -806,8 +795,4 @@ impl World {
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
     }
-
-    // pub fn missiles(&self) -> &[Missile] {
-    //     &self.missiles
-    // }
 }

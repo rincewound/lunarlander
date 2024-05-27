@@ -12,7 +12,11 @@ use crate::{
     vecmath::{self, TransformationMatrix, Vec2d},
 };
 
-use super::{entity::Entity, objectstore::ObjectStore, Missile};
+use super::{
+    entity::Entity,
+    objectstore::{ObjectDefault, ObjectStore},
+    Missile,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum EnemyType {
@@ -29,6 +33,16 @@ pub struct Enemy<'a> {
     pub entity_id: usize,
     pub ty: EnemyType,
     pub hull: &'a [Vec2d],
+}
+
+impl ObjectDefault for Enemy<'_> {
+    fn default() -> Self {
+        Enemy {
+            entity_id: 0,
+            ty: EnemyType::Invalid,
+            hull: &[],
+        }
+    }
 }
 
 impl Enemy<'_> {

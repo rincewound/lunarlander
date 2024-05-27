@@ -12,7 +12,7 @@ pub trait ObjectDefault {
 }
 
 pub struct ObjectStore<T> {
-    id: usize,
+    id: RefCell<usize>,
     objects: RefCell<Vec<Object<T>>>,
 }
 
@@ -22,12 +22,20 @@ where
 {
     pub fn new() -> Self {
         ObjectStore {
-            id: 0,
+            id: RefCell::new(0),
             objects: RefCell::new(Vec::new()),
         }
     }
 
-    pub fn insert_object(&mut self, object: T) -> usize {
+    fn inc_id(&self) {
+        *self.id.borrow_mut() += 1;
+    }
+
+    fn id(&self) -> usize {
+        *self.id.borrow()
+    }
+
+    pub fn insert_object(&self, object: T) -> usize {
         let id = self.create_object();
         self.update_object(id, object);
         return id;
@@ -52,14 +60,14 @@ where
         panic!("Entity with id {} does not exist", id)
     }
 
-    pub fn create_object(&mut self) -> usize {
+    pub fn create_object(&self) -> usize {
         let mut objects = self.objects.borrow_mut();
-        let entity_id = self.id;
-        self.id += 1;
+        let entity_id = self.id();
         objects.push(Object {
             id: entity_id,
             inner: T::default(),
         });
+        self.inc_id();
         return entity_id;
     }
 
@@ -110,5 +118,16 @@ where
         let entity_index = self.id_to_index(id);
         let mut objects = self.objects.borrow_mut();
         f(&mut objects[entity_index].inner);
+    }
+
+    pub fn with_new(&self, mut f: impl FnMut(&mut T, usize)) {
+        let entity_id = self.create_object();
+        let entity_index = self.id_to_index(entity_id);
+        let mut objects = self.objects.borrow_mut();
+        f(&mut objects[entity_index].inner, entity_id);
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.objects.borrow().len()
     }
 }
