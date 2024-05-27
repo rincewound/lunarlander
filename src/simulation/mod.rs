@@ -8,9 +8,8 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Texture};
 
 use crate::graphics::{
-    self, render_game_over, ENTITY_SCALE, MINIRECT_ENEMY, MINIRECT_ENEMY_COLOR, MISSILE,
-    RECT_ENEMY, RECT_ENEMY_COLOR, ROMBUS_ENEMY, ROMBUS_ENEMY_COLOR, STARSHIP_COLOR, WANDERER_ENEMY,
-    WANDERER_ENEMY_COLOR,
+    self, render_game_over, ENTITY_SCALE, MINIRECT_ENEMY, MISSILE, RECT_ENEMY, ROMBUS_ENEMY,
+    STARSHIP_COLOR,
 };
 use crate::sound;
 use crate::vecmath::TransformationMatrix;
@@ -20,15 +19,18 @@ use crate::{
 };
 
 use self::enemy::{Enemy, EnemyType};
+use self::entity::Entity;
 use self::explosion::Explosion;
 
 mod enemy;
+mod entity;
 mod explosion;
-mod physics;
+mod objectstore;
 mod vertex;
+mod vertexgrid;
 
-use self::physics::Physics;
-use self::vertex::Vertex;
+use self::objectstore::ObjectStore;
+use self::vertexgrid::VertexGrid;
 
 const MAX_ACCELERATION: f32 = 800.0;
 const VELOCITY_SPACESHIP: f32 = 450.0;
@@ -39,6 +41,7 @@ const MIN_SHOOT_COOLDOWN: f32 = 0.08;
 
 const NUM_EXPLOSION_FARMES: u32 = 50;
 
+#[derive(Clone, PartialEq, Debug)]
 pub enum BorderBehavior {
     Dismiss,
     Bounce,
@@ -63,18 +66,7 @@ impl DirectionKey {
     }
 }
 
-pub struct Entity {
-    id: usize,
-    position: Vec2d,
-    angle: f32,          // angle in rad
-    direction: Vec2d,    // non normalized, has speed integrated!
-    acceleration: Vec2d, // non normalized, has force integrated!
-    max_velocity: f32,
-    border_behavior: BorderBehavior,
-    update: bool,
-}
-
-pub struct Lander {
+pub struct Starship {
     entity_id: usize,
     drive_enabled: bool,
     shoot_direction: Vec2d,
@@ -111,15 +103,14 @@ pub enum State {
 }
 
 pub struct World {
-    p: Physics,
     next_entity_id: usize,
-    entities: Vec<Entity>,
+    entities: ObjectStore<Entity>,
     missiles: Vec<Missile>,
-    grid: Vec<Vertex>,
+    grid: VertexGrid,
     enemies: Vec<Enemy<'static>>,
     texts: Vec<FloatingText>,
     explosions: Vec<Explosion>,
-    lander: Lander,
+    starship: Starship,
     hud: hud::Hud,
     game_state: State,
     score: u32,
@@ -147,51 +138,9 @@ impl Missile {
     }
 }
 
-impl Entity {
-    pub(crate) fn default(id: usize) -> Self {
-        Entity {
-            id,
-            position: Vec2d::default(),
-            angle: 0.0,
-            direction: Vec2d::default(),
-            acceleration: Vec2d::default(),
-            max_velocity: 0.0,
-            border_behavior: BorderBehavior::Dismiss,
-            update: true,
-        }
-    }
-
-    pub fn set_acceleration(&mut self, accel: Vec2d) {
-        self.acceleration = accel;
-    }
-
-    pub fn set_position(&mut self, position: Vec2d) {
-        self.position = position;
-    }
-
-    pub fn get_transform(&self) -> TransformationMatrix {
-        let pos = vecmath::TransformationMatrix::translation_v(self.position);
-        let rot = vecmath::TransformationMatrix::rotate(self.angle);
-        return pos * rot;
-    }
-
-    pub fn get_screenspace_transform(
-        &self,
-        screenspace_transform: TransformationMatrix,
-    ) -> TransformationMatrix {
-        let pos = vecmath::TransformationMatrix::translation_v(self.position);
-        let rot = vecmath::TransformationMatrix::rotate(self.angle);
-        return pos * screenspace_transform * rot;
-    }
-
-    fn velocity(&self) -> f32 {
-        return self.direction.len();
-    }
-}
-
 impl World {
     pub fn new(window_width: u32, window_height: u32) -> Self {
-        let lander = Lander {
+        let lander = Starship {
             entity_id: 0,
             drive_enabled: false,
             shoot_direction: Vec2d::default(),
@@ -199,16 +148,19 @@ impl World {
             shoot_cooldown_count: 0.0,
         };
 
-        let mut lander_entity = Entity::default(0);
+        let mut store: ObjectStore<Entity> = ObjectStore::<Entity>::new();
+        let lander_id = store.create_object();
+
+        let mut lander_entity = store.get_object_clone(lander_id);
         lander_entity.set_position(WORLD_SIZE / 2.0);
-        lander_entity.max_velocity = VELOCITY_SPACESHIP;
-        lander_entity.border_behavior = BorderBehavior::BounceSlowdown;
+        lander_entity.set_max_velocity(VELOCITY_SPACESHIP);
+        lander_entity.set_border_behavior(BorderBehavior::BounceSlowdown);
+        store.update_object(lander_id, lander_entity);
 
         let w = World {
             next_entity_id: 1,
-            p: Physics::default(),
-            entities: vec![lander_entity],
-            lander,
+            entities: store,
+            starship: lander,
             enemies: Vec::new(),
             texts: Vec::new(),
             explosions: Vec::new(),
@@ -231,28 +183,24 @@ impl World {
     }
 
     pub fn create_entity(&mut self) -> usize {
-        let entity_id = self.next_entity_id;
-        self.next_entity_id += 1;
-        let mut e = Entity::default(entity_id);
-        e.set_position(Vec2d::new(200.0, 300.0));
-        self.entities.push(e);
-        return entity_id;
+        return self.entities.create_object();
     }
 
     pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
-        let id = self.create_entity();
-        let entity = self.get_entity(id);
-        entity.position = pos;
-        entity.direction = direction;
-        entity.acceleration = direction * MAX_ACCELERATION;
-        entity.max_velocity = VELOCITY_MISSILE;
-        entity.border_behavior = BorderBehavior::Dismiss;
-        entity.angle = direction.angle_360();
+        let id = self.entities.create_object();
+        let mut entity = self.entities.get_object_clone(id);
+        entity.set_position(pos);
+        entity.set_direction(direction);
+        entity.set_acceleration(direction * MAX_ACCELERATION);
+        entity.set_max_velocity(VELOCITY_MISSILE);
+        entity.set_border_behavior(BorderBehavior::Dismiss);
+        entity.set_angle(direction.angle_360());
+        self.entities.update_object(id, entity);
         self.missiles.push(Missile::new(id));
     }
 
     fn garbage_collect_entities(&mut self, ids_to_remove: &Vec<usize>) {
-        self.entities.retain(|x| !ids_to_remove.contains(&x.id));
+        self.entities.garbage_collect(ids_to_remove);
     }
 
     pub fn dismiss_dead_missiles(&mut self) {
@@ -281,49 +229,48 @@ impl World {
             .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
     }
 
-    fn entity_id_to_index(&self, id: usize) -> usize {
-        let mut idx = 0;
-        for e in self.entities.iter() {
-            if e.id == id {
-                return idx;
-            }
-            idx += 1;
-        }
-        panic!("Entity with id {} does not exist", id)
-    }
+    // pub fn get_entity(&mut self, id: usize) -> &mut Entity {
+    //     return self.entities.get_object_mut(id);
+    // }
 
-    pub fn get_entity(&mut self, id: usize) -> &mut Entity {
-        let entity_index = self.entity_id_to_index(id);
-        return &mut self.entities[entity_index];
-    }
-    pub fn get_entity_immutable(&self, id: usize) -> &Entity {
-        let entity_index = self.entity_id_to_index(id);
-        return &self.entities[entity_index];
-    }
+    // pub fn get_entity_immutable(&self, id: usize) -> &Entity {
+    //     return self.entities.get_object(id);
+    // }
 
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
         if self.game_state != State::Running {
             return;
         }
         // Do physics (i.e. Gravity & Acceleration) tick
-        self.p
-            .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
+
+        let sim_time_in_seconds = time_in_ms / 1000.0;
+        let mut num_ticks = (sim_time_in_seconds / tick_resolution_in_ms) as usize;
+        if num_ticks == 0 {
+            num_ticks = 1;
+        }
+        self.entities
+            .for_each(|e: &mut Entity, id: usize| e.physics_tick(sim_time_in_seconds, num_ticks));
+        // self.p
+        //     .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
-        let lander_entity = self.get_entity(self.lander.entity_id);
-        if lander_entity.acceleration.len() < 0.01 {
-            lander_entity.direction = if lander_entity.velocity() > 20.0 {
+        let mut lander_entity = self.entities.get_object_clone(self.starship.entity_id);
+        if lander_entity.acceleration().len() < 0.01 {
+            lander_entity.set_direction(if lander_entity.velocity() > 20.0 {
                 let sim_time_in_seconds = time_in_ms / 1000.0;
-                let break_fragment = lander_entity.direction.normalized()
+                let break_fragment = lander_entity.direction().normalized()
                     * 8.0
                     * MAX_ACCELERATION
                     * sim_time_in_seconds;
-                lander_entity.direction - break_fragment
+                lander_entity.direction() - break_fragment
             } else {
                 Vec2d::default()
-            }
+            })
         }
+
+        self.entities
+            .update_object(self.starship.entity_id, lander_entity);
 
         self.missile_tick(time_in_ms);
         self.dismiss_dead_missiles();
@@ -359,23 +306,20 @@ impl World {
                 )
         }
 
-        let lander_entity = self.get_entity_immutable(self.lander.entity_id);
+        let lander_entity = self.entities.get_object(self.starship.entity_id);
 
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
-            * TransformationMatrix::translation_v(lander_entity.position * -1.0)
+            * TransformationMatrix::translation_v(lander_entity.position() * -1.0)
             * shake_transform
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
-
-        //self.render_starfield(canvas, textures);
-        //self.render_asteroids(screen_space_transform, canvas);
 
         self.render_grid(canvas, screen_space_transform); //render gris first
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
         self.render_explosions(canvas, screen_space_transform, textures);
         self.render_texts(canvas, screen_space_transform);
-        self.render_starship(lander_entity, screen_space_transform, canvas, textures);
+        self.render_starship(&lander_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
 
         if self.whiteout_frames > 0 {
@@ -397,7 +341,7 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
     ) {
         for missile in self.missiles.iter() {
-            let entity = self.get_entity_immutable(missile.entity_id);
+            let entity = self.entities.get_object(missile.entity_id);
             let scale = vecmath::TransformationMatrix::scale(7f32, 7f32);
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
             let vecs = entity_trans.transform_many(&MISSILE.to_vec());
@@ -415,22 +359,23 @@ impl World {
             return;
         }
         let dir_vec = dir.get_vec2d();
-        let entity = self.get_entity(self.lander.entity_id);
+        let mut entity = self.entities.get_object_clone(self.starship.entity_id);
         let accel_factor = dir_vec * MAX_ACCELERATION;
         let new_accel = if enable {
-            entity.acceleration + accel_factor
+            entity.acceleration() + accel_factor
         } else {
-            entity.acceleration - accel_factor
+            entity.acceleration() - accel_factor
         };
         entity.set_acceleration(new_accel);
         if new_accel.len() > 0.0 {
             let new_angle = new_accel.angle_360();
             // + pi because drawing is upside down
-            entity.angle = new_angle + PI;
+            entity.set_angle(new_angle + PI);
         } else {
             // no direction do not change angle
         }
-        self.lander.drive_enabled = new_accel.len() > 0.001;
+        self.entities.update_object(self.starship.entity_id, entity);
+        self.starship.drive_enabled = new_accel.len() > 0.001;
     }
 
     pub(crate) fn shoot(&mut self, dir: DirectionKey, enable: bool) {
@@ -438,24 +383,24 @@ impl World {
             return;
         }
         let shoot_dir = dir.get_vec2d();
-        self.lander.shoot_direction = if enable {
-            self.lander.shoot_direction + shoot_dir
+        self.starship.shoot_direction = if enable {
+            self.starship.shoot_direction + shoot_dir
         } else {
-            self.lander.shoot_direction - shoot_dir
+            self.starship.shoot_direction - shoot_dir
         };
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
-        if self.lander.shoot_cooldown_count > 0.0 {
-            self.lander.shoot_cooldown_count -= time_in_ms / 1000.0;
+        if self.starship.shoot_cooldown_count > 0.0 {
+            self.starship.shoot_cooldown_count -= time_in_ms / 1000.0;
         }
-        if self.lander.shoot_direction.len() > 0.0 && self.lander.shoot_cooldown_count <= 0.0 {
-            self.lander.shoot_cooldown_count = self.lander.shoot_cooldown;
-            let id = self.lander.entity_id;
-            let lander_entity = self.get_entity_immutable(id);
-            let position = lander_entity.position;
+        if self.starship.shoot_direction.len() > 0.0 && self.starship.shoot_cooldown_count <= 0.0 {
+            self.starship.shoot_cooldown_count = self.starship.shoot_cooldown;
+            let id = self.starship.entity_id;
+            let lander_entity = self.entities.get_object(id);
+            let position = lander_entity.position();
             let init_velocity = 40.0 * (lander_entity.velocity() + 1.0);
-            let direction = self.lander.shoot_direction * init_velocity;
+            let direction = self.starship.shoot_direction * init_velocity;
             self.sound.shoot();
             self.create_missile(position, direction);
         }
@@ -464,38 +409,24 @@ impl World {
             self.missiles[i].time_to_live -= time_in_ms / 1000.0f32;
 
             let id = self.missiles[i].entity_id;
-            let entity = self.get_entity_immutable(id);
-            let position = entity.position;
+            let entity = self.entities.get_object(id);
+            let position = entity.position();
             Self::intersect_grid(position, &mut self.grid);
         }
     }
 
-    fn intersect_grid(missile_pos: Vec2d, grid: &mut Vec<Vertex>) {
-        let x = missile_pos.x;
-        let y = missile_pos.y;
-
-        if x > WORLD_SIZE.x || x < 0.0 || y < 0.0 || y > WORLD_SIZE.y {
-            return;
-        }
-
-        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as usize;
-        let w_off = (x / GRID_DISTANCE) as usize;
-        let y_off = (y / GRID_DISTANCE) as usize;
-        let index = y_off * num_coll + w_off;
-
-        let dir = missile_pos - grid[index].position();
-        if dir.len() > 0.01 {
-            grid[index].add_to_dir(dir.normalized() * 15.0);
-        }
+    fn intersect_grid(missile_pos: Vec2d, grid: &mut VertexGrid) {
+        grid.intersect_grid(missile_pos);
     }
+
     fn make_safe_enemy_position(&self) -> Vec2d {
         loop {
             let pos = Vec2d {
                 x: thread_rng().gen_range(0..(WORLD_SIZE.x as usize)) as f32,
                 y: thread_rng().gen_range(0..(WORLD_SIZE.y as usize)) as f32,
             };
-            let id = self.lander.entity_id;
-            let player_pos = self.get_entity_immutable(id).position;
+            let id = self.starship.entity_id;
+            let player_pos = self.entities.get_object(id).position();
             if (player_pos - pos).len() > 300f32 {
                 return pos;
             }
@@ -504,6 +435,15 @@ impl World {
 
     fn enemy_tick(&mut self, time_in_ms: f32) {
         // check if we have enough enemies:
+        self.spawn_enemies();
+
+        for i in 0..self.enemies.len() {
+            let en = &self.enemies[i];
+            en.tick(&self.entities, self.starship.entity_id);
+        }
+    }
+
+    fn spawn_enemies(&mut self) {
         if self.enemies.len() < 50 {
             let should_spawn = thread_rng().gen_ratio(1, 100);
 
@@ -559,105 +499,24 @@ impl World {
                     }
 
                     let epos = self.make_safe_enemy_position();
-                    let the_entity = self.get_entity(ent);
-                    the_entity.position = epos;
-                    the_entity.border_behavior = BorderBehavior::Bounce;
+                    let mut the_entity = self.entities.get_object_clone(ent);
+                    the_entity.set_position(epos);
+                    the_entity.set_border_behavior(BorderBehavior::Bounce);
+                    self.entities.update_object(ent, the_entity);
                     self.enemies.push(enemy);
                 }
-            }
-        }
-
-        for i in 0..self.enemies.len() {
-            let en = &self.enemies[i];
-            let ty = &en.ty;
-            match ty {
-                EnemyType::Rect => self.rect_tick(i),
-                EnemyType::Rombus => self.rombus_tick(i),
-                EnemyType::Wanderer => self.wanderer_tick(i),
-                EnemyType::SpawningRect => self.rect_tick(i),
-                &EnemyType::MiniRect => self.rect_tick(i),
-                _ => {}
             }
         }
     }
 
     fn grid_tick(&mut self) {
-        for elem in self.grid.iter_mut() {
-            elem.mov();
-            elem.set_dir_back();
-        }
-    }
-
-    fn rombus_tick(&mut self, rombus_id: usize) {
-        let player_pos = self
-            .get_entity_immutable(self.lander.entity_id)
-            .position
-            .clone();
-        let en = &self.enemies[rombus_id];
-        let own_entity = self.get_entity(en.entity_id);
-        let new_dir = (player_pos - own_entity.position).normalized() * 40.0f32;
-        own_entity.acceleration = new_dir;
-        own_entity.direction = new_dir;
-        own_entity.max_velocity = 40.0f32;
-    }
-
-    fn rect_tick(&mut self, rombus_id: usize) {
-        let current_pos;
-        let mut new_dir;
-        {
-            let player_pos = self
-                .get_entity_immutable(self.lander.entity_id)
-                .position
-                .clone();
-            let en = &self.enemies[rombus_id];
-            let own_entity = self.get_entity(en.entity_id);
-            new_dir = (player_pos - own_entity.position).normalized() * 35.0f32;
-            current_pos = own_entity.position;
-        }
-
-        for missiles in self.missiles.iter() {
-            let missile_ent = self.get_entity_immutable(missiles.entity_id);
-            let missile_pos = missile_ent.position;
-            // each missile will apply a force on the rect enemy, that
-            // is inversely proportional to the distance
-            let missile_dist = current_pos - missile_pos;
-            const FORCE_RANGE: f32 = 96f32;
-            let missile_dist_units = missile_dist.len();
-            let relative_force_strength = 1.0f32 - (missile_dist_units / FORCE_RANGE);
-
-            if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
-                continue;
-            }
-
-            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 128f32);
-        }
-
-        let en = &self.enemies[rombus_id];
-        let own_entity = self.get_entity(en.entity_id);
-        own_entity.acceleration = new_dir;
-        own_entity.direction = new_dir;
-        own_entity.max_velocity = 75.0f32;
-    }
-
-    fn wanderer_tick(&mut self, i: usize) {
-        let en = &self.enemies[i];
-        let own_entity = self.get_entity(en.entity_id);
-
-        let new_dir = Vec2d {
-            x: thread_rng().gen_range(-1.0..1.0) as f32,
-            y: thread_rng().gen_range(-1.0..1.0) as f32,
-        };
-
-        const MAX_VEL: f32 = 30f32;
-        own_entity.direction = new_dir.normalized() * MAX_VEL;
-        own_entity.acceleration = own_entity.direction * MAX_VEL;
-        own_entity.max_velocity = MAX_VEL;
+        self.grid.tick();
     }
 
     fn do_collision_detection(&mut self) {
-        let id = self.lander.entity_id;
-        let lander_entity = self.get_entity_immutable(id);
-        let lander_position = lander_entity.position;
+        let id = self.starship.entity_id;
+        let lander_entity = self.entities.get_object(id);
+        let lander_position = lander_entity.position();
 
         let mut enemies_to_delete = Vec::<usize>::new();
         let mut missiles_to_delete = Vec::<usize>::new();
@@ -667,8 +526,8 @@ impl World {
         let mut new_texts: Vec<FloatingText> = Vec::new();
         for enemy in self.enemies.iter() {
             // create collidable hull for entity:
-            let enemy_ent = self.get_entity_immutable(enemy.entity_id);
-            let enemy_pos = enemy_ent.position;
+            let enemy_ent = self.entities.get_object(enemy.entity_id);
+            let enemy_pos = enemy_ent.position();
             let enemy_transform = enemy_ent.get_transform();
             let scale_transform =
                 vecmath::TransformationMatrix::scale(ENTITY_SCALE.x, ENTITY_SCALE.y);
@@ -681,9 +540,9 @@ impl World {
             }
             // Check collision against missiles
             for m in self.missiles.iter() {
-                let missile_entity = self.get_entity_immutable(m.entity_id);
+                let missile_entity = self.entities.get_object(m.entity_id);
                 let projectile_collision =
-                    collision::hit_test(missile_entity.position, &enemy_hull);
+                    collision::hit_test(missile_entity.position(), &enemy_hull);
 
                 // create two new asteroids, smaller than the previous one, but
                 // flying in other directions.
@@ -691,7 +550,10 @@ impl World {
                 if projectile_collision {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
-                    missiles_to_delete.push(m.entity_id);
+
+                    if !missiles_to_delete.contains(&m.entity_id) {
+                        missiles_to_delete.push(m.entity_id);
+                    }
                     new_hit_points += enemy.get_score();
                     if enemy.ty == EnemyType::SpawningRect {
                         minirect_spawns.push(m.entity_id);
@@ -719,7 +581,10 @@ impl World {
             .clone()
             .into_iter()
             .filter(|a| !enemies_to_delete.contains(&a.entity_id));
+
+        println!("GC MISSILES");
         self.garbage_collect_entities(&missiles_to_delete);
+        println!("GC ENEMIES;");
         self.garbage_collect_entities(&enemies_to_delete);
         self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
@@ -729,20 +594,21 @@ impl World {
         for id in minirect_spawns.iter() {
             let spawnpos;
             {
-                let entity = self.get_entity_immutable(*id);
-                spawnpos = entity.position;
+                let entity = self.entities.get_object(*id);
+                spawnpos = entity.position();
             }
 
             for i in 0..2 {
                 let new_ent_id = self.create_entity();
-                let new_ent = self.get_entity(new_ent_id);
-                new_ent.position = spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32;
-                new_ent.border_behavior = BorderBehavior::Bounce;
+                let mut new_ent = self.entities.get_object_clone(new_ent_id);
+                new_ent.set_position(spawnpos.clone() + Vec2d::new(16f32, 16f32) * i as f32);
+                new_ent.set_border_behavior(BorderBehavior::Bounce);
                 let minirect = Enemy {
                     entity_id: new_ent_id,
                     ty: EnemyType::MiniRect,
                     hull: &MINIRECT_ENEMY,
                 };
+                self.entities.update_object(new_ent_id, new_ent);
                 self.enemies.push(minirect);
             }
         }
@@ -753,7 +619,7 @@ impl World {
         const COOLDOWN_STEP: f32 = (MAX_SHOOT_COOLDOWN - MIN_SHOOT_COOLDOWN) / 3.0;
         for (level_score, shoot_cooldown_idx) in vec![(5_000, 1), (10_000, 2), (15_000, 3)] {
             if self.score <= level_score && level_score < new_score {
-                self.lander.shoot_cooldown =
+                self.starship.shoot_cooldown =
                     MAX_SHOOT_COOLDOWN - (shoot_cooldown_idx as f32 * COOLDOWN_STEP);
             }
         }
@@ -761,12 +627,12 @@ impl World {
     }
 
     fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
-        let id = self.lander.entity_id;
-        let entity = self.get_entity(id);
-        let position = entity.position;
-        let direction = entity.direction;
-        let acceleration = entity.acceleration;
-        let angle = entity.angle;
+        let id = self.starship.entity_id;
+        let entity = self.entities.get_object(id);
+        let position = entity.position();
+        let direction = entity.direction();
+        let acceleration = entity.acceleration();
+        let angle = entity.angle();
         self.hud.update(
             position,
             direction,
@@ -800,13 +666,13 @@ impl World {
             draw::neon_draw_lines(canvas, &geometry, STARSHIP_COLOR, true, texture).unwrap();
         }
 
-        if self.lander.drive_enabled {
+        if self.starship.drive_enabled {
             let geometry;
             geometry = transform.transform_many(&graphics::FLAME_A.to_vec());
             draw::draw_lines(canvas, &geometry, Color::RGB(255, 255, 255), true).unwrap();
         }
 
-        let lander_center = screen_space_transform.transform(&lander_entity.position);
+        let lander_center = screen_space_transform.transform(&lander_entity.position());
         let _ = canvas.copy(
             textures.get("halo").unwrap(),
             None,
@@ -826,41 +692,8 @@ impl World {
         textures: &HashMap<String, Texture<'_>>,
     ) {
         for enemy in self.enemies.iter() {
-            let entity = self.get_entity_immutable(enemy.entity_id);
-
-            let items: &[Vec2d];
-            let col;
-            match enemy.ty {
-                EnemyType::Rect => {
-                    items = &RECT_ENEMY;
-                    col = RECT_ENEMY_COLOR;
-                }
-                EnemyType::Rombus => {
-                    items = &ROMBUS_ENEMY;
-                    col = ROMBUS_ENEMY_COLOR;
-                }
-                EnemyType::Wanderer => {
-                    items = &WANDERER_ENEMY;
-                    col = WANDERER_ENEMY_COLOR
-                }
-                EnemyType::SpawningRect => {
-                    items = &RECT_ENEMY;
-                    col = MINIRECT_ENEMY_COLOR;
-                }
-                EnemyType::MiniRect => {
-                    items = &MINIRECT_ENEMY;
-                    col = MINIRECT_ENEMY_COLOR;
-                }
-                EnemyType::Invalid => todo!(),
-            }
-            let scale = vecmath::TransformationMatrix::scale(
-                graphics::ENTITY_SCALE.x,
-                graphics::ENTITY_SCALE.y,
-            );
-            let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
-            let texture = textures.get("neon").unwrap();
-            let geometry = entity_trans.transform_many(&items.to_vec());
-            draw::neon_draw_lines(canvas, &geometry, col, true, texture).unwrap();
+            let entity = self.entities.get_object(enemy.entity_id);
+            enemy.render(canvas, screen_space_transform, textures, &entity);
         }
     }
 
@@ -945,60 +778,18 @@ impl World {
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
         screen_space_transform: TransformationMatrix,
     ) {
-        let row_count: usize = ((WORLD_SIZE.x / GRID_DISTANCE) + 1.0) as usize;
-        let col_count = ((WORLD_SIZE.y / GRID_DISTANCE) + 1.0) as usize;
-
-        //draw horizontal
-        let mut current_row: usize = 0;
-        let mut j: usize = 0;
-        while j < col_count {
-            let mut i: usize = 0;
-            while i < (row_count - 1) {
-                let p1 = screen_space_transform
-                    .transform(&self.grid[i + (current_row * row_count)].position());
-                let p2: Vec2d = screen_space_transform
-                    .transform(&self.grid[i + 1 + (current_row * row_count)].position());
-                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
-                i += 1;
-            }
-            j += 1;
-            current_row += 1;
-        }
-
-        //draw vertical
-        let mut current_col: usize = 0;
-        while current_col < row_count {
-            let mut i: usize = 0;
-            while i < (col_count - 1) {
-                let p1 = screen_space_transform
-                    .transform(&self.grid[i * row_count + current_col].position());
-                let p2: Vec2d = screen_space_transform
-                    .transform(&self.grid[(i + 1) * row_count + current_col].position());
-                let _ = draw::draw_line(canvas, &p1, &p2, Color::BLUE);
-                i += 1;
-            }
-            current_col += 1;
-        }
+        self.grid.render(canvas, screen_space_transform);
     }
 
-    fn make_grid() -> Vec<Vertex> {
-        let mut grid: Vec<Vertex> = Vec::new();
-
-        let mut y = 0.0;
-        while y < WORLD_SIZE.y + 1.0 {
-            let mut x = 0.0;
-            while x < WORLD_SIZE.x + 1.0 {
-                let pos: Vec2d = Vec2d::new(x, y);
-                let vertex: Vertex = Vertex::new(pos);
-                grid.push(vertex);
-                x += GRID_DISTANCE;
-            }
-            y += GRID_DISTANCE;
-        }
-        return grid;
+    fn make_grid() -> VertexGrid {
+        VertexGrid::new()
     }
 
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
+    }
+
+    pub fn missiles(&self) -> &[Missile] {
+        &self.missiles
     }
 }
