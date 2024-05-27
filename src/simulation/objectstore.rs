@@ -28,6 +28,12 @@ where
         }
     }
 
+    pub fn insert_object(&mut self, object: T) -> usize {
+        let id = self.create_object();
+        self.update_object(id, object);
+        return id;
+    }
+
     pub fn for_each(&self, mut f: impl FnMut(&mut T, usize)) {
         let mut objects = self.objects.borrow_mut();
         for e in objects.iter_mut() {
@@ -80,5 +86,24 @@ where
     pub fn garbage_collect(&mut self, ids_to_remove: &Vec<usize>) {
         let mut objects = self.objects.borrow_mut();
         objects.retain(|x| !ids_to_remove.contains(&x.id));
+    }
+
+    pub fn garbage_collect_filter(&mut self, filter: impl Fn(&T) -> bool) {
+        let mut objects = self.objects.borrow_mut();
+        objects.retain(|x| !filter(&x.inner));
+    }
+
+    pub fn filter_ids(&self, filter: impl Fn(&T) -> bool) -> Vec<usize> {
+        let objects = self.objects.borrow_mut();
+        return objects
+            .iter()
+            .filter(|x| filter(&x.inner))
+            .map(|x| x.id)
+            .collect();
+    }
+
+    pub fn filter_map<U>(&self, filter: impl Fn(&T) -> Option<U>) -> Vec<U> {
+        let objects = self.objects.borrow_mut();
+        return objects.iter().filter_map(|x| filter(&x.inner)).collect();
     }
 }

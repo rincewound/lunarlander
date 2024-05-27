@@ -29,7 +29,7 @@ mod objectstore;
 mod vertex;
 mod vertexgrid;
 
-use self::objectstore::ObjectStore;
+use self::objectstore::{ObjectDefault, ObjectStore};
 use self::vertexgrid::VertexGrid;
 
 const MAX_ACCELERATION: f32 = 800.0;
@@ -74,10 +74,19 @@ pub struct Starship {
     shoot_cooldown_count: f32, // current cooldown value (sec)
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct Missile {
     entity_id: usize,
     time_to_live: f32, // in seconds
+}
+
+impl ObjectDefault for Missile {
+    fn default() -> Self {
+        Missile {
+            entity_id: 0,
+            time_to_live: 5.0f32,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -103,9 +112,8 @@ pub enum State {
 }
 
 pub struct World {
-    next_entity_id: usize,
     entities: ObjectStore<Entity>,
-    missiles: Vec<Missile>,
+    missiles: ObjectStore<Missile>,
     grid: VertexGrid,
     enemies: Vec<Enemy<'static>>,
     texts: Vec<FloatingText>,
@@ -158,7 +166,6 @@ impl World {
         store.update_object(lander_id, lander_entity);
 
         let w = World {
-            next_entity_id: 1,
             entities: store,
             starship: lander,
             enemies: Vec::new(),
@@ -166,7 +173,7 @@ impl World {
             explosions: Vec::new(),
             hud: hud::Hud::new(),
             game_state: State::Running,
-            missiles: vec![],
+            missiles: ObjectStore::new(),
             grid: Self::make_grid(),
             score: 0,
             sound: sound::Sound::new(),
@@ -196,7 +203,7 @@ impl World {
         entity.set_border_behavior(BorderBehavior::Dismiss);
         entity.set_angle(direction.angle_360());
         self.entities.update_object(id, entity);
-        self.missiles.push(Missile::new(id));
+        self.missiles.insert_object(Missile::new(id));
     }
 
     fn garbage_collect_entities(&mut self, ids_to_remove: &Vec<usize>) {
@@ -204,14 +211,17 @@ impl World {
     }
 
     pub fn dismiss_dead_missiles(&mut self) {
-        let ids_to_remove: Vec<usize> = self
-            .missiles
-            .iter()
-            .filter(|x| x.time_to_live <= 0.0)
-            .map(|m| m.entity_id)
-            .collect();
-        self.garbage_collect_entities(&ids_to_remove);
-        self.missiles.retain(|m| m.time_to_live > 0.0);
+        // Wrong: We must not remove the missile ids from the entities!
+        let entities_to_remove = self.missiles.filter_map(|x| {
+            if x.time_to_live <= 0.0 {
+                Some(x.entity_id)
+            } else {
+                None
+            }
+        });
+        self.garbage_collect_entities(&entities_to_remove);
+        self.missiles
+            .garbage_collect_filter(|m| m.time_to_live <= 0.0);
     }
 
     fn texts_tick(&mut self, time_in_ms: f32) {
@@ -229,14 +239,6 @@ impl World {
             .retain(|e| e.frame_count < NUM_EXPLOSION_FARMES);
     }
 
-    // pub fn get_entity(&mut self, id: usize) -> &mut Entity {
-    //     return self.entities.get_object_mut(id);
-    // }
-
-    // pub fn get_entity_immutable(&self, id: usize) -> &Entity {
-    //     return self.entities.get_object(id);
-    // }
-
     pub fn tick(&mut self, time_in_ms: f32, tick_resolution_in_ms: f32) {
         if self.game_state != State::Running {
             return;
@@ -250,8 +252,6 @@ impl World {
         }
         self.entities
             .for_each(|e: &mut Entity, id: usize| e.physics_tick(sim_time_in_seconds, num_ticks));
-        // self.p
-        //     .physics_tick(time_in_ms, tick_resolution_in_ms, &mut self.entities);
 
         //TODO: maybe use this to update lander angle smoothly
         //let rotation = self.lander.rotation;
@@ -340,13 +340,13 @@ impl World {
         screen_space_transform: TransformationMatrix,
         canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
     ) {
-        for missile in self.missiles.iter() {
+        self.missiles.for_each(|missile, id| {
             let entity = self.entities.get_object(missile.entity_id);
             let scale = vecmath::TransformationMatrix::scale(7f32, 7f32);
             let entity_trans = entity.get_screenspace_transform(screen_space_transform) * scale;
             let vecs = entity_trans.transform_many(&MISSILE.to_vec());
             let _ = draw::draw_lines(canvas, &vecs, Color::RGBA(255, 255, 255, 255), true);
-        }
+        });
     }
 
     pub(crate) fn update_window_size(&mut self, width: f32, height: f32) {
@@ -394,6 +394,7 @@ impl World {
         if self.starship.shoot_cooldown_count > 0.0 {
             self.starship.shoot_cooldown_count -= time_in_ms / 1000.0;
         }
+
         if self.starship.shoot_direction.len() > 0.0 && self.starship.shoot_cooldown_count <= 0.0 {
             self.starship.shoot_cooldown_count = self.starship.shoot_cooldown;
             let id = self.starship.entity_id;
@@ -405,14 +406,14 @@ impl World {
             self.create_missile(position, direction);
         }
 
-        for i in 0..(self.missiles.len()) {
-            self.missiles[i].time_to_live -= time_in_ms / 1000.0f32;
+        self.missiles.for_each(|missile, id| {
+            missile.time_to_live -= time_in_ms / 1000.0f32;
 
-            let id = self.missiles[i].entity_id;
+            let id = missile.entity_id;
             let entity = self.entities.get_object(id);
             let position = entity.position();
             Self::intersect_grid(position, &mut self.grid);
-        }
+        });
     }
 
     fn intersect_grid(missile_pos: Vec2d, grid: &mut VertexGrid) {
@@ -439,7 +440,7 @@ impl World {
 
         for i in 0..self.enemies.len() {
             let en = &self.enemies[i];
-            en.tick(&self.entities, self.starship.entity_id);
+            en.tick(&self.entities, self.starship.entity_id, &self.missiles);
         }
     }
 
@@ -539,8 +540,8 @@ impl World {
                 self.game_state = State::Lost;
             }
             // Check collision against missiles
-            for m in self.missiles.iter() {
-                let missile_entity = self.entities.get_object(m.entity_id);
+            self.missiles.for_each(|missile, id| {
+                let missile_entity = self.entities.get_object(missile.entity_id);
                 let projectile_collision =
                     collision::hit_test(missile_entity.position(), &enemy_hull);
 
@@ -551,12 +552,13 @@ impl World {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
 
-                    if !missiles_to_delete.contains(&m.entity_id) {
-                        missiles_to_delete.push(m.entity_id);
+                    if !missiles_to_delete.contains(&missile.entity_id) {
+                        missiles_to_delete.push(missile.entity_id);
                     }
+
                     new_hit_points += enemy.get_score();
                     if enemy.ty == EnemyType::SpawningRect {
-                        minirect_spawns.push(m.entity_id);
+                        minirect_spawns.push(missile.entity_id);
                     }
                     new_texts.push(FloatingText::new(
                         enemy_pos,
@@ -564,29 +566,24 @@ impl World {
                     ));
                     self.explosions.push(Explosion::new(enemy_pos));
                 }
-            }
+            });
         }
         self.update_score(new_hit_points);
         self.texts.extend(new_texts);
 
         self.spawn_minirects(minirect_spawns);
 
-        let new_missiles = self
-            .missiles
-            .clone()
-            .into_iter()
-            .filter(|a| !missiles_to_delete.contains(&a.entity_id));
+        self.missiles
+            .garbage_collect_filter(|x| missiles_to_delete.contains(&x.entity_id));
+
         let new_enemies = self
             .enemies
             .clone()
             .into_iter()
             .filter(|a| !enemies_to_delete.contains(&a.entity_id));
 
-        //println!("GC MISSILES");
         self.garbage_collect_entities(&missiles_to_delete);
-        //println!("GC ENEMIES;");
         self.garbage_collect_entities(&enemies_to_delete);
-        self.missiles = new_missiles.collect();
         self.enemies = new_enemies.collect();
     }
 
@@ -789,7 +786,7 @@ impl World {
         self.sound.toggle_background_music();
     }
 
-    pub fn missiles(&self) -> &[Missile] {
-        &self.missiles
-    }
+    // pub fn missiles(&self) -> &[Missile] {
+    //     &self.missiles
+    // }
 }

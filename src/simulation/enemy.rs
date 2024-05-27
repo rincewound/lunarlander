@@ -12,7 +12,7 @@ use crate::{
     vecmath::{self, TransformationMatrix, Vec2d},
 };
 
-use super::{entity::Entity, objectstore::ObjectStore, World};
+use super::{entity::Entity, objectstore::ObjectStore, Missile, World};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum EnemyType {
@@ -43,16 +43,21 @@ impl Enemy<'_> {
         };
     }
 
-    pub fn tick(&self, entities: &ObjectStore<Entity>, player_id: usize) {
+    pub fn tick(
+        &self,
+        entities: &ObjectStore<Entity>,
+        player_id: usize,
+        missiles: &ObjectStore<Missile>,
+    ) {
         let ty = self.ty;
         let playerpos = entities.get_object(player_id).position().clone();
 
         match ty {
-            EnemyType::Rect => self.rect_tick(entities, playerpos),
+            EnemyType::Rect => self.rect_tick(entities, playerpos, missiles),
             EnemyType::Rombus => self.rombus_tick(entities, playerpos),
             EnemyType::Wanderer => self.wanderer_tick(entities),
-            EnemyType::SpawningRect => self.rect_tick(entities, playerpos),
-            EnemyType::MiniRect => self.rect_tick(entities, playerpos),
+            EnemyType::SpawningRect => self.rect_tick(entities, playerpos, missiles),
+            EnemyType::MiniRect => self.rect_tick(entities, playerpos, missiles),
             _ => {}
         }
     }
@@ -109,13 +114,18 @@ impl Enemy<'_> {
         world.update_object(self.entity_id, ent);
     }
 
-    fn rect_tick(&self, world: &ObjectStore<Entity>, player_pos: Vec2d) {
+    fn rect_tick(
+        &self,
+        world: &ObjectStore<Entity>,
+        player_pos: Vec2d,
+        missiles: &ObjectStore<Missile>,
+    ) {
         let vel = match self.ty {
-            EnemyType::Rect => 80f32,
+            EnemyType::Rect => 120f32,
             EnemyType::Rombus => todo!(),
             EnemyType::Wanderer => todo!(),
-            EnemyType::SpawningRect => 70f32,
-            EnemyType::MiniRect => 200f32,
+            EnemyType::SpawningRect => 100f32,
+            EnemyType::MiniRect => 250f32,
             EnemyType::Invalid => todo!(),
         };
         let current_pos;
@@ -125,22 +135,22 @@ impl Enemy<'_> {
             new_dir = (player_pos - current_pos).normalized() * vel;
         }
 
-        // for missiles in world.missiles().iter() {
-        //     let missile_ent = world.get_object(missiles.entity_id);
-        //     let missile_pos = missile_ent.position();
-        //     // each missile will apply a force on the rect enemy, that
-        //     // is inversely proportional to the distance
-        //     let missile_dist = current_pos - missile_pos;
-        //     const FORCE_RANGE: f32 = 96f32;
-        //     let missile_dist_units = missile_dist.len();
-        //     let relative_force_strength = 1.0f32 - (missile_dist_units / FORCE_RANGE);
+        missiles.for_each(|missile, id| {
+            let missile_ent = world.get_object(missile.entity_id);
+            let missile_pos = missile_ent.position();
+            // each missile will apply a force on the rect enemy, that
+            // is inversely proportional to the distance
+            let missile_dist = current_pos - missile_pos;
+            const FORCE_RANGE: f32 = 128f32;
+            let missile_dist_units = missile_dist.len();
+            let relative_force_strength = 1.0f32 - (missile_dist_units / FORCE_RANGE);
 
-        //     if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
-        //         continue;
-        //     }
+            if relative_force_strength > 1.0f32 || relative_force_strength < 0.0f32 {
+                return;
+            }
 
-        //     new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * 128f32);
-        // }
+            new_dir = new_dir + ((missile_dist.normalized()) * relative_force_strength * vel);
+        });
 
         let mut ent = world.get_object_clone(self.entity_id);
         ent.set_acceleration(new_dir);

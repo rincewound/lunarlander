@@ -88,7 +88,6 @@ impl Sound {
                 self.bg_music_sink.append(snd.decoder());
             }
         }
-        // self.bg_music_sink.play();
     }
 
     pub fn toggle_background_music(&mut self) {
