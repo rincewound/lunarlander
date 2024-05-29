@@ -121,13 +121,8 @@ pub struct World {
     hud: hud::Hud,
     game_state: State,
     score: u32,
-
-    screen_shake_frames: usize,
-    screen_shake_strength: f32,
     screen_size: Vec2d,
     sound: sound::Sound,
-    whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
-
     axis_l_x: i16,
     axis_l_y: i16,
     axis_r_x: i16,
@@ -180,16 +175,13 @@ impl World {
             hud: hud::Hud::new(),
             game_state: State::Running,
             missiles: ObjectStore::new(),
-            grid: Self::make_grid(),
+            grid: VertexGrid::new(),
             score: 0,
             sound: sound::Sound::new(),
-            screen_shake_frames: 0,
-            screen_shake_strength: 0.0,
             screen_size: Vec2d {
                 x: window_width as f32,
                 y: window_height as f32,
             },
-            whiteout_frames: 0,
             axis_l_x: 0,
             axis_l_y: 0,
             axis_r_x: 0,
@@ -233,8 +225,10 @@ impl World {
     }
 
     fn texts_tick(&mut self, time_in_ms: f32) {
+        let delta = time_in_ms / 1000.0f32;
         for txt in self.texts.iter_mut() {
-            txt.time_to_live -= time_in_ms / 1000.0f32;
+            txt.time_to_live -= delta;
+            txt.position = txt.position + (Vec2d { x: 0.0, y: -40.0 } * delta);
         }
         self.texts.retain(|t| t.time_to_live > 0.0);
     }
@@ -340,9 +334,6 @@ impl World {
         self.texts_tick(time_in_ms);
         self.explosion_tick();
         self.grid_tick();
-
-        // Do collision detection, fail if we collided with the environment
-        // or a landingpad (in pad case: if velocity was too high)
         self.do_collision_detection();
         self.sound.play_background_music();
     }
@@ -357,43 +348,20 @@ impl World {
             State::Running => (),
         }
 
-        let mut shake_transform = TransformationMatrix::unit();
-        if self.screen_shake_frames > 0 {
-            self.screen_shake_frames -= 1;
-            let mut rnd = rand::thread_rng();
-            shake_transform = shake_transform
-                * TransformationMatrix::translation(
-                    rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
-                    rnd.gen_range(0..self.screen_shake_strength as i32) as f32 / 2.0,
-                )
-        }
-
-        let lander_entity = self.entities.get_object(self.starship.entity_id);
+        let starship_entity = self.entities.get_object(self.starship.entity_id);
 
         let mut screen_space_transform = TransformationMatrix::unit();
         screen_space_transform = screen_space_transform
-            * TransformationMatrix::translation_v(lander_entity.position() * -1.0)
-            * shake_transform
+            * TransformationMatrix::translation_v(starship_entity.position() * -1.0)
             * TransformationMatrix::translation_v(self.screen_size / 2.0); // center to screen
 
-        self.render_grid(canvas, screen_space_transform); //render gris first
+        self.render_grid(canvas, screen_space_transform);
         self.render_world_border(canvas, screen_space_transform);
         self.render_enemies(canvas, screen_space_transform, textures);
         self.render_explosions(canvas, screen_space_transform, textures);
         self.render_texts(canvas, screen_space_transform);
-        self.render_starship(&lander_entity, screen_space_transform, canvas, textures);
+        self.render_starship(&starship_entity, screen_space_transform, canvas, textures);
         self.render_missiles(screen_space_transform, canvas);
-
-        if self.whiteout_frames > 0 {
-            self.whiteout_frames -= 1;
-            let alpha = 255 * (1.0 - (10.0 / self.whiteout_frames as f32)) as u8;
-            canvas.set_draw_color(Color::RGBA(255, 255, 255, alpha));
-            canvas.set_blend_mode(BlendMode::Mul);
-            let _ = canvas.fill_rect(Rect::new(0, 0, 800, 600));
-            canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
-            canvas.set_blend_mode(BlendMode::None);
-        }
-
         self.render_hud(canvas);
     }
 
@@ -430,7 +398,7 @@ impl World {
         }
     }
 
-    pub fn set_direction(&mut self, direction: Vec2d) {
+    pub fn set_player_direction(&mut self, direction: Vec2d) {
         self.entities.with(self.starship.entity_id, |entity| {
             let last_len = if entity.direction().is_not_zero() {
                 entity.direction().len()
@@ -455,8 +423,9 @@ impl World {
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
+        let time_delta = time_in_ms / 1000.0f32;
         if self.starship.shoot_cooldown_count > 0.0 {
-            self.starship.shoot_cooldown_count -= time_in_ms / 1000.0;
+            self.starship.shoot_cooldown_count -= time_delta;
         }
 
         if self.starship.shoot_direction.len() > 0.0 && self.starship.shoot_cooldown_count <= 0.0 {
@@ -471,8 +440,7 @@ impl World {
         }
 
         self.missiles.for_each(|missile, _| {
-            missile.time_to_live -= time_in_ms / 1000.0f32;
-
+            missile.time_to_live -= time_delta;
             let id = missile.entity_id;
             let entity = self.entities.get_object(id);
             let position = entity.position();
@@ -515,7 +483,7 @@ impl World {
                 let num_to_spawn = thread_rng().gen_range(2..10);
 
                 for _ in 0..num_to_spawn {
-                    let epos = self.make_safe_enemy_position();
+                    let pos = self.make_safe_enemy_position();
                     self.entities.with_new(|the_entity, entity_index| {
                         let enemy_type = thread_rng().gen_range(0..EnemyType::Invalid as usize);
                         let enemy;
@@ -561,8 +529,7 @@ impl World {
                             }
                         }
 
-                        the_entity.set_position(epos);
-                        the_entity.set_position(epos);
+                        the_entity.set_position(pos);
                         the_entity.set_border_behavior(BorderBehavior::Bounce);
                         self.enemies.insert_object(enemy);
                     });
@@ -679,15 +646,11 @@ impl World {
     fn render_hud(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let id = self.starship.entity_id;
         let entity = self.entities.get_object(id);
-        let position = entity.position();
-        let direction = entity.direction();
-        let acceleration = entity.acceleration();
-        let angle = entity.angle();
         self.hud.update(
-            position,
-            direction,
-            acceleration,
-            angle,
+            entity.position(),
+            entity.direction(),
+            entity.acceleration(),
+            entity.angle(),
             self.score,
             self.enemies.len() as u32,
         );
@@ -831,10 +794,6 @@ impl World {
         self.grid.render(canvas, screen_space_transform);
     }
 
-    fn make_grid() -> VertexGrid {
-        VertexGrid::new()
-    }
-
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
     }
@@ -862,9 +821,9 @@ impl World {
 
         if new_dir.is_not_zero() {
             if new_dir.len() < 1500.0 {
-                self.set_direction(Vec2d::default());
+                self.set_player_direction(Vec2d::default());
             } else {
-                self.set_direction(new_dir.normalized());
+                self.set_player_direction(new_dir.normalized());
             }
         }
 
