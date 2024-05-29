@@ -77,13 +77,6 @@ where
         return objects[entity_index].inner.clone();
     }
 
-    pub fn get_object_clone(&self, id: usize) -> T {
-        let entity_index = self.id_to_index(id);
-        let mut objects = self.objects.borrow_mut();
-        let ref_obj = &mut objects[entity_index].inner;
-        return ref_obj.clone();
-    }
-
     pub fn update_object(&self, id: usize, object: T) {
         let entity_index = self.id_to_index(id);
         let mut objects = self.objects.borrow_mut();

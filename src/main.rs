@@ -139,29 +139,22 @@ pub fn main() -> Result<(), String> {
                     which: _,
                     axis,
                     value,
-                } => {
-                    println!("Axis: {:?} value: {:?}", axis, value);
-                    match axis {
-                        Axis::LeftX => {
-                            sim.modify_control_bit(BIT_LEFT, value < -2000);
-                            sim.modify_control_bit(BIT_RIGHT, value > 2000);
-                        }
-                        Axis::LeftY => {
-                            sim.modify_control_bit(BIT_UP, value < -2000);
-                            sim.modify_control_bit(BIT_DOWN, value > 2000);
-                        }
-                        Axis::RightX => {
-                            sim.modify_control_bit(BIT_SHOOT_LEFT, value < -2000);
-                            sim.modify_control_bit(BIT_SHOOT_RIGHT, value > 2000);
-                        }
-                        Axis::RightY => {
-                            sim.modify_control_bit(BIT_SHOOT_UP, value < -2000);
-                            sim.modify_control_bit(BIT_SHOOT_DOWN, value > 2000);
-                        }
-                        Axis::TriggerLeft => restart(&mut sim, w, h),
-                        Axis::TriggerRight => todo!(),
+                } => match axis {
+                    Axis::LeftX => {
+                        sim.modify_axis(Axis::LeftX, value);
                     }
-                }
+                    Axis::LeftY => {
+                        sim.modify_axis(Axis::LeftY, value);
+                    }
+                    Axis::RightX => {
+                        sim.modify_axis(Axis::RightX, value);
+                    }
+                    Axis::RightY => {
+                        sim.modify_axis(Axis::RightY, value);
+                    }
+                    Axis::TriggerLeft => restart(&mut sim, w, h),
+                    Axis::TriggerRight => todo!(),
+                },
                 _ => {}
             }
         }

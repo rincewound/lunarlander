@@ -48,6 +48,7 @@ impl Sound {
             "./assets/sfx_vehicle_engineloop.wav",
             "./assets/2.mp3",
             "./assets/Enemy_explode.mp3",
+            "./assets/sfx_deathscream_robot4.wav",
         ];
 
         for filename in files.iter() {
@@ -78,8 +79,8 @@ impl Sound {
         self.play_sample("./assets/Enemy_explode.mp3");
     }
 
-    pub fn accelerate(&self) {
-        self.play_sample("./assets/sfx_vehicle_engineloop.wav")
+    pub fn die(&self) {
+        self.play_sample("./assets/sfx_deathscream_robot4.wav");
     }
 
     pub fn play_background_music(&mut self) {
@@ -96,11 +97,5 @@ impl Sound {
         } else {
             self.bg_music_sink.pause();
         }
-    }
-
-    pub fn die(&self) {
-        let file = BufReader::new(File::open("./assets/sfx_deathscream_robot4.wav").unwrap());
-        let dec = Decoder::new(file).unwrap();
-        self.stream_handle.play_raw(dec.convert_samples()).unwrap();
     }
 }

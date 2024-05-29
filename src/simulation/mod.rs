@@ -48,6 +48,12 @@ pub enum BorderBehavior {
     BounceSlowdown,
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum ActiveControleScheme {
+    Keyboard,
+    Gamepad,
+}
+
 pub const BIT_LEFT: u16 = 0b1;
 pub const BIT_RIGHT: u16 = 0b10;
 pub const BIT_UP: u16 = 0b100;
@@ -121,6 +127,13 @@ pub struct World {
     screen_size: Vec2d,
     sound: sound::Sound,
     whiteout_frames: u32, // number of frames to draw white, when large asteroids are destroyed
+
+    axis_l_x: i16,
+    axis_l_y: i16,
+    axis_r_x: i16,
+    axis_r_y: i16,
+
+    active_controle_scheme: ActiveControleScheme,
 }
 
 const WORLD_SIZE: Vec2d = Vec2d {
@@ -141,7 +154,7 @@ impl Missile {
 
 impl World {
     pub fn new(window_width: u32, window_height: u32) -> Self {
-        let lander = Starship {
+        let mut lander = Starship {
             entity_id: 0,
             drive_enabled: false,
             shoot_direction: Vec2d::default(),
@@ -149,14 +162,13 @@ impl World {
             shoot_cooldown_count: 0.0,
         };
 
-        let mut store: ObjectStore<Entity> = ObjectStore::<Entity>::new();
-        let lander_id = store.create_object();
-
-        let mut lander_entity = store.get_object_clone(lander_id);
-        lander_entity.set_position(WORLD_SIZE / 2.0);
-        lander_entity.set_max_velocity(VELOCITY_SPACESHIP);
-        lander_entity.set_border_behavior(BorderBehavior::BounceSlowdown);
-        store.update_object(lander_id, lander_entity);
+        let store: ObjectStore<Entity> = ObjectStore::<Entity>::new();
+        store.with_new(|the_entity, entity_index| {
+            the_entity.set_position(WORLD_SIZE / 2.0);
+            the_entity.set_max_velocity(VELOCITY_SPACESHIP);
+            the_entity.set_border_behavior(BorderBehavior::BounceSlowdown);
+            lander.entity_id = entity_index;
+        });
 
         let w = World {
             game_control_bits: 0,
@@ -178,14 +190,16 @@ impl World {
                 y: window_height as f32,
             },
             whiteout_frames: 0,
+            axis_l_x: 0,
+            axis_l_y: 0,
+            axis_r_x: 0,
+            axis_r_y: 0,
+
+            active_controle_scheme: ActiveControleScheme::Keyboard,
         };
 
         w
     }
-
-    // pub fn create_entity(&mut self) -> usize {
-    //     return self.entities.create_object();
-    // }
 
     pub fn create_missile(&mut self, pos: Vec2d, direction: Vec2d) {
         let id = self.entities.create_object();
@@ -206,7 +220,6 @@ impl World {
     }
 
     pub fn dismiss_dead_missiles(&mut self) {
-        // Wrong: We must not remove the missile ids from the entities!
         let entities_to_remove = self.missiles.filter_map(|x| {
             if x.time_to_live <= 0.0 {
                 Some(x.entity_id)
@@ -235,6 +248,10 @@ impl World {
     }
 
     pub fn apply_control(&mut self) {
+        if self.active_controle_scheme != ActiveControleScheme::Keyboard {
+            return;
+        }
+
         self.entities
             .with(self.starship.entity_id, |e: &mut Entity| {
                 // shooting:
@@ -404,11 +421,37 @@ impl World {
             return;
         }
 
+        self.active_controle_scheme = ActiveControleScheme::Keyboard;
+
         if enable {
             self.game_control_bits |= dir;
         } else {
             self.game_control_bits &= !dir;
         }
+    }
+
+    pub fn set_direction(&mut self, direction: Vec2d) {
+        self.entities.with(self.starship.entity_id, |entity| {
+            let last_len = if entity.direction().is_not_zero() {
+                entity.direction().len()
+            } else {
+                1.0f32
+            };
+            entity.set_direction(direction * last_len);
+            let dir_vec = entity.direction();
+            let accel_factor = dir_vec * MAX_ACCELERATION;
+            entity.set_acceleration(accel_factor);
+
+            self.starship.drive_enabled = entity.direction().is_not_zero();
+
+            if accel_factor.len() > 0.0 {
+                let new_angle = accel_factor.angle_360();
+                // + pi because drawing is upside down
+                entity.set_angle(new_angle + PI);
+            } else {
+                // no direction do not change angle
+            }
+        })
     }
 
     fn missile_tick(&mut self, time_in_ms: f32) {
@@ -794,5 +837,44 @@ impl World {
 
     pub fn toggle_background_music(&mut self) {
         self.sound.toggle_background_music();
+    }
+
+    pub(crate) fn modify_axis(&mut self, axis: sdl2::controller::Axis, value: i16) {
+        self.active_controle_scheme = ActiveControleScheme::Gamepad;
+        match axis {
+            sdl2::controller::Axis::LeftX => {
+                self.axis_l_x = value;
+            }
+            sdl2::controller::Axis::LeftY => {
+                self.axis_l_y = value;
+            }
+            sdl2::controller::Axis::RightX => {
+                self.axis_r_x = value;
+            }
+            sdl2::controller::Axis::RightY => {
+                self.axis_r_y = value;
+            }
+            sdl2::controller::Axis::TriggerLeft => {}
+            sdl2::controller::Axis::TriggerRight => {}
+        }
+
+        let new_dir = Vec2d::new(self.axis_l_x as f32, self.axis_l_y as f32);
+
+        if new_dir.is_not_zero() {
+            if new_dir.len() < 1500.0 {
+                self.set_direction(Vec2d::default());
+            } else {
+                self.set_direction(new_dir.normalized());
+            }
+        }
+
+        let new_shoot_dir = Vec2d::new(self.axis_r_x as f32, self.axis_r_y as f32);
+        if new_shoot_dir.is_not_zero() {
+            if new_shoot_dir.len() < 1500.0 {
+                self.starship.shoot_direction = Vec2d::default();
+            } else {
+                self.starship.shoot_direction = new_shoot_dir.normalized();
+            }
+        }
     }
 }
