@@ -333,7 +333,7 @@ impl World {
         self.enemy_tick();
         self.texts_tick(time_in_ms);
         self.explosion_tick();
-        self.grid_tick();
+        self.grid.tick(time_in_ms);
         self.do_collision_detection();
         self.sound.play_background_music();
     }
@@ -525,7 +525,11 @@ impl World {
                                 }
                             }
                             _ => {
-                                panic!("Bad enemy type!");
+                                enemy = Enemy {
+                                    ty: EnemyType::Wanderer,
+                                    entity_id: entity_index,
+                                    hull: &RECT_ENEMY,
+                                }
                             }
                         }
 
@@ -536,10 +540,6 @@ impl World {
                 }
             }
         }
-    }
-
-    fn grid_tick(&mut self) {
-        self.grid.tick();
     }
 
     fn do_collision_detection(&mut self) {
@@ -577,6 +577,8 @@ impl World {
                 if projectile_collision {
                     self.sound.explode();
                     enemies_to_delete.push(enemy.entity_id);
+                    self.grid
+                        .add_circular_effect(enemy_pos, 32.0, 1.8f32, 128.0f32);
 
                     if !missiles_to_delete.contains(&missile.entity_id) {
                         missiles_to_delete.push(missile.entity_id);

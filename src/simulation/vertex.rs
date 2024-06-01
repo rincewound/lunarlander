@@ -44,4 +44,8 @@ impl Vertex {
     pub fn position(&self) -> Vec2d {
         self.position
     }
+
+    pub fn direction(&self) -> Vec2d {
+        self.direction
+    }
 }

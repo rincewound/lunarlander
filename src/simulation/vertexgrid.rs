@@ -5,10 +5,39 @@ use crate::{
     vecmath::{TransformationMatrix, Vec2d},
 };
 
-use super::{vertex::Vertex, GRID_DISTANCE, WORLD_SIZE};
+use super::{
+    objectstore::{ObjectDefault, ObjectStore},
+    vertex::Vertex,
+    GRID_DISTANCE, WORLD_SIZE,
+};
+
+#[derive(Clone, Copy)]
+struct CircularEffect {
+    center: Vec2d,
+    radius: f32,
+    time_to_live: f32,
+    expansion_speed: f32,
+}
+
+#[derive(Clone, Copy)]
+enum Effect {
+    Circular(CircularEffect),
+}
+
+impl ObjectDefault for Effect {
+    fn default() -> Self {
+        Effect::Circular(CircularEffect {
+            center: Vec2d::default(),
+            radius: 0.0,
+            time_to_live: 0.0,
+            expansion_speed: 0.0,
+        })
+    }
+}
 
 pub struct VertexGrid {
     grid: Vec<Vertex>,
+    effects: ObjectStore<Effect>,
 }
 
 impl VertexGrid {
@@ -26,7 +55,26 @@ impl VertexGrid {
             }
             y += GRID_DISTANCE;
         }
-        Self { grid }
+
+        Self {
+            grid,
+            effects: ObjectStore::new(),
+        }
+    }
+
+    pub fn add_circular_effect(
+        &mut self,
+        center: Vec2d,
+        radius: f32,
+        time_to_live: f32,
+        expansion_speed: f32,
+    ) {
+        self.effects.insert_object(Effect::Circular(CircularEffect {
+            center,
+            radius,
+            time_to_live,
+            expansion_speed,
+        }));
     }
 
     pub fn intersect_grid(&mut self, missile_pos: Vec2d) {
@@ -63,7 +111,76 @@ impl VertexGrid {
         }
     }
 
-    pub fn tick(&mut self) {
+    pub fn apply_force(&mut self, force: Vec2d, pos: Vec2d, deltaT: f32) {
+        let x = ((pos.x as i32) / GRID_DISTANCE as i32) as i32;
+        let y = ((pos.y as i32) / GRID_DISTANCE as i32) as i32;
+
+        if x > WORLD_SIZE.x as i32 || y > WORLD_SIZE.y as i32 || x < 0 || y < 0 {
+            return;
+        }
+
+        let num_coll = (WORLD_SIZE.x / GRID_DISTANCE + 1.0) as i32;
+        let index = (y * num_coll + x) as usize;
+        // Stupid defensive programming here...
+        if index < self.grid.len() {
+            // clip max force to 500 units
+            let mut next_dir = self.grid[index].direction() + force * deltaT;
+            if next_dir.is_not_zero() {
+                if next_dir.len() > 250.0 {
+                    next_dir = next_dir.normalized() * 250.0;
+                }
+            }
+            self.grid[index].add_to_dir(next_dir);
+        }
+    }
+
+    pub fn tick(&mut self, time_in_ms: f32) {
+        let deltaT = time_in_ms / 1000.0;
+        let mut forces_to_apply: Vec<(Vec2d, Vec2d)> = Vec::new();
+        self.effects
+            .for_each(|effect: &mut Effect, _: usize| match effect {
+                Effect::Circular(e) => {
+                    e.time_to_live -= deltaT;
+                    if e.time_to_live > 0.0 {
+                        e.radius += e.expansion_speed * deltaT;
+
+                        // all vertices within the radius of the effect
+                        // are affected
+                        let start_pos = e.center - (Vec2d::new(e.radius, e.radius) * 0.5f32);
+                        let num_x_steps = (e.radius / GRID_DISTANCE) as usize;
+                        let num_y_steps = (e.radius / GRID_DISTANCE) as usize;
+
+                        for i in 0..=num_y_steps {
+                            for j in 0..=num_x_steps {
+                                let current_pos = start_pos
+                                    + Vec2d::new(
+                                        j as f32 * GRID_DISTANCE,
+                                        i as f32 * GRID_DISTANCE,
+                                    );
+
+                                let mut the_force = e.center - current_pos;
+                                if the_force.is_not_zero() {
+                                    // force gets weaker as it closes in on its ttl
+                                    the_force = the_force.normalized() * e.time_to_live * 500.0;
+                                } else {
+                                    the_force = Vec2d::default();
+                                }
+
+                                forces_to_apply.push((the_force, current_pos));
+                            }
+                        }
+                    }
+                }
+            });
+
+        self.effects.garbage_collect_filter(|x| match x {
+            Effect::Circular(x) => x.time_to_live <= 0.0,
+        });
+
+        for (force, pos) in forces_to_apply {
+            self.apply_force(force, pos, deltaT);
+        }
+
         for elem in self.grid.iter_mut() {
             elem.mov();
             elem.set_dir_back();
